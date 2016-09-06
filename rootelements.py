@@ -1283,18 +1283,8 @@ class MainWindow(QtGui.QMainWindow):
                 rho = self.modelfile[self.modelind].dataset[self.dsind].box[0]["rho"].data
                 ei = self.modelfile[self.modelind].dataset[self.dsind].box[0]["ei"].data
 
-                if self.dataTypeCombo.currentText() == "Entropy":
-                    self.data = eosinter.eosinters(rho, ei, self.eosfile)
-                    self.unit = self.eosfile.block[0]["c1"].params["u"]
-                elif self.dataTypeCombo.currentText() == "Pressure":
-                    coef = np.transpose(self.eosfile.block[0]["c2"].data)
-                    self.data = eosinter.eosinterp(rho, ei, self.eosfile, coef)
-                    self.unit = self.eosfile.block[0]["c2"].params["u"]
-                elif self.dataTypeCombo.currentText() == "Temperature":
-                    coef = np.transpose(self.eosfile.block[0]["c3"].data)
-                    self.data = eosinter.eosintert(rho, ei, self.eosfile, coef)
-                    self.unit = self.eosfile.block[0]["c3"].params["u"]
-
+                self.data, self.unit = eosinter.STP(rho, ei, self.eosfile,
+                                                    quantity=self.dataTypeCombo.currentText())
             elif self.dataTypeCombo.currentText() == "Plasma beta":
                 x1 = self.modelfile[0].dataset[0].box[0]["xb1"].data.squeeze()*1.e-5
                 x2 = self.modelfile[0].dataset[0].box[0]["xb2"].data.squeeze()*1.e-5
@@ -1311,23 +1301,7 @@ class MainWindow(QtGui.QMainWindow):
                 rho = self.modelfile[self.modelind].dataset[self.dsind].box[0]["rho"].data
                 ei = self.modelfile[self.modelind].dataset[self.dsind].box[0]["ei"].data
 
-                lnx11d = np.log(self.eosfile.block[0]["x1"].data +\
-                                 self.eosfile.block[0]["x1shift"].data).squeeze()
-                lnx21d = np.log(self.eosfile.block[0]["x2"].data +\
-                                 self.eosfile.block[0]["x2shift"].data).squeeze()
-
-                nx1 = lnx11d.size-1
-                nx2 = lnx21d.size-1
-
-                x1fac = float(nx1) / (lnx11d.max() - lnx11d.min())
-                x2fac = float(nx2) / (lnx21d.max() - lnx21d.min())
-
-                coef = np.transpose(self.eosfile.block[0]["c1"].data)
-
-                x2_shift = self.eosfile.block[0]["x2shift"].data
-                coef = np.transpose(self.eosfile.block[0]["c2"].data)
-                P = eosinter.eosinterp(rho, ei, lnx11d, lnx21d, x1fac, x2fac,
-                                       x2_shift, coef)
+                P,_ = eosinter.STP(rho, ei, self.eosfile)
 
                 self.data = ne.evaluate("2.0*P/(bc1**2+bc2**2+bc3**2)")
                 self.unit = ""
@@ -1335,24 +1309,8 @@ class MainWindow(QtGui.QMainWindow):
                 rho = self.modelfile[self.modelind].dataset[self.dsind].box[0]["rho"].data
                 ei = self.modelfile[self.modelind].dataset[self.dsind].box[0]["ei"].data
 
-                lnx11d = np.log(self.eosfile.block[0]["x1"].data +\
-                                 self.eosfile.block[0]["x1shift"].data).squeeze()
-                lnx21d = np.log(self.eosfile.block[0]["x2"].data +\
-                                 self.eosfile.block[0]["x2shift"].data).squeeze()
-
-                nx1 = lnx11d.size-1
-                nx2 = lnx21d.size-1
-
-                x1fac = float(nx1) / (lnx11d.max() - lnx11d.min())
-                x2fac = float(nx2) / (lnx21d.max() - lnx21d.min())
-
-                coef = np.transpose(self.eosfile.block[0]["c1"].data)
-
-                x2_shift = self.eosfile.block[0]["x2shift"].data
                 coef = np.transpose(self.eosfile.block[0]["c2"].data)
-                P, dPdrho, dPde = eosinter.eosinterpall(rho, ei, lnx11d,
-                                                        lnx21d, x1fac, x2fac,
-                                                        x2_shift, coef)
+                P, dPdrho, dPde = eosinter.Pall(rho, ei, self.eosfile)
 
                 self.data = ne.evaluate("sqrt(P*dPde/(rho**2.0)+dPdrho)")
                 self.unit = "cm/s"
@@ -1360,22 +1318,7 @@ class MainWindow(QtGui.QMainWindow):
                 rho = self.modelfile[self.modelind].dataset[self.dsind].box[0]["rho"].data
                 ei = self.modelfile[self.modelind].dataset[self.dsind].box[0]["ei"].data
 
-                lnx11d = np.log(self.eosfile.block[0]["x1"].data +\
-                                 self.eosfile.block[0]["x1shift"].data).flatten()
-                lnx21d = np.log(self.eosfile.block[0]["x2"].data +\
-                                 self.eosfile.block[0]["x2shift"].data).flatten()
-
-                nx1 = lnx11d.size-1
-                nx2 = lnx21d.size-1
-
-                x1fac = float(nx1) / (lnx11d.max() - lnx11d.min())
-                x2fac = float(nx2) / (lnx21d.max() - lnx21d.min())
-
-                x2_shift = self.eosfile.block[0]["x2shift"].data
-                coef = np.transpose(self.eosfile.block[0]["c2"].data)
-                P, dPdrho, dPde = eosinter.eosinterpall(rho, ei, lnx11d,
-                                                        lnx21d, x1fac, x2fac,
-                                                        x2_shift, coef)
+                P, dPdrho, dPde = eosinter.Pall(rho, ei, self.eosfile)
 
                 x1 = self.modelfile[0].dataset[0].box[0]["xb1"].data.squeeze() * 1.e-5
                 x2 = self.modelfile[0].dataset[0].box[0]["xb2"].data.squeeze() * 1.e-5
@@ -1395,29 +1338,9 @@ class MainWindow(QtGui.QMainWindow):
                 rho = self.modelfile[self.modelind].dataset[self.dsind].box[0]["rho"].data
                 ei = self.modelfile[self.modelind].dataset[self.dsind].box[0]["ei"].data
 
-                lnx11d = np.log(self.eosfile.block[0]["x1"].data +\
-                                 self.eosfile.block[0]["x1shift"].data).flatten()
-                lnx21d = np.log(self.eosfile.block[0]["x2"].data +\
-                                 self.eosfile.block[0]["x2shift"].data).flatten()
-
-                nx1 = lnx11d.size-1
-                nx2 = lnx21d.size-1
-
-                x1fac = float(nx1) / (lnx11d.max() - lnx11d.min())
-                x2fac = float(nx2) / (lnx21d.max() - lnx21d.min())
-
-                x2_shift = self.eosfile.block[0]["x2shift"].data
-                coef = np.transpose(self.eosfile.block[0]["c2"].data)
-
-                P = eosinter.eosinterp(rho, ei, lnx11d, lnx21d, x1fac, x2fac,
-                                       x2_shift, coef)
-
-                coef = np.transpose(self.eosfile.block[0]["c3"].data)
-
-                T = eosinter.eosintert(rho, ei, lnx11d, lnx21d, x1fac, x2fac,
-                                       x2_shift, coef)
-
-                R = 8.314*1.0e7
+                P,_ = eosinter.STP(rho, ei, self.eosfile)
+                T,_ = eosinter.STP(rho, ei, self.eosfile, quantity='Temperature')
+                R = 8.314e7
 
                 self.data = ne.evaluate("R*rho*T/P")
 
@@ -1426,22 +1349,7 @@ class MainWindow(QtGui.QMainWindow):
                 rho = self.modelfile[self.modelind].dataset[self.dsind].box[0]["rho"].data
                 ei = self.modelfile[self.modelind].dataset[self.dsind].box[0]["ei"].data
 
-                lnx11d = np.log(self.eosfile.block[0]["x1"].data +\
-                                 self.eosfile.block[0]["x1shift"].data).flatten()
-                lnx21d = np.log(self.eosfile.block[0]["x2"].data +\
-                                 self.eosfile.block[0]["x2shift"].data).flatten()
-
-                nx1 = lnx11d.size-1
-                nx2 = lnx21d.size-1
-
-                x1fac = float(nx1) / (lnx11d.max() - lnx11d.min())
-                x2fac = float(nx2) / (lnx21d.max() - lnx21d.min())
-
-                x2_shift = self.eosfile.block[0]["x2shift"].data
-                coef = np.transpose(self.eosfile.block[0]["c2"].data)
-                P, dPdrho, dPde = eosinter.eosinterpall(rho, ei, lnx11d,
-                                                        lnx21d, x1fac, x2fac,
-                                                        x2_shift, coef)
+                P, dPdrho, dPde = eosinter.Pall(rho, ei, self.eosfile)
 
                 v1 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["v1"].data
                 v2 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["v2"].data
@@ -1453,22 +1361,7 @@ class MainWindow(QtGui.QMainWindow):
                 rho = self.modelfile[self.modelind].dataset[self.dsind].box[0]["rho"].data
                 ei = self.modelfile[self.modelind].dataset[self.dsind].box[0]["ei"].data
 
-                lnx11d = np.log(self.eosfile.block[0]["x1"].data +\
-                                 self.eosfile.block[0]["x1shift"].data).flatten()
-                lnx21d = np.log(self.eosfile.block[0]["x2"].data +\
-                                 self.eosfile.block[0]["x2shift"].data).flatten()
-
-                nx1 = lnx11d.size-1
-                nx2 = lnx21d.size-1
-
-                x1fac = float(nx1) / (lnx11d.max() - lnx11d.min())
-                x2fac = float(nx2) / (lnx21d.max() - lnx21d.min())
-
-                x2_shift = self.eosfile.block[0]["x2shift"].data
-                coef = np.transpose(self.eosfile.block[0]["c2"].data)
-                P, dPdrho, dPde = eosinter.eosinterpall(rho, ei, lnx11d,
-                                                        lnx21d, x1fac, x2fac,
-                                                        x2_shift, coef)
+                P, dPdrho, dPde = eosinter.Pall(rho, ei, self.eosfile)
 
                 self.data = ne.evaluate("dPdrho*rho/P+dPde/rho")
                 self.unit = ""
@@ -1476,22 +1369,7 @@ class MainWindow(QtGui.QMainWindow):
                 rho = self.modelfile[self.modelind].dataset[self.dsind].box[0]["rho"].data
                 ei = self.modelfile[self.modelind].dataset[self.dsind].box[0]["ei"].data
 
-                lnx11d = np.log(self.eosfile.block[0]["x1"].data +\
-                                 self.eosfile.block[0]["x1shift"].data).flatten()
-                lnx21d = np.log(self.eosfile.block[0]["x2"].data +\
-                                 self.eosfile.block[0]["x2shift"].data).flatten()
-
-                nx1 = lnx11d.size-1
-                nx2 = lnx21d.size-1
-
-                x1fac = float(nx1) / (lnx11d.max() - lnx11d.min())
-                x2fac = float(nx2) / (lnx21d.max() - lnx21d.min())
-
-                x2_shift = self.eosfile.block[0]["x2shift"].data
-                coef = np.transpose(self.eosfile.block[0]["c2"].data)
-                P, dPdrho, dPde = eosinter.eosinterpall(rho, ei, lnx11d,
-                                                        lnx21d, x1fac, x2fac,
-                                                        x2_shift, coef)
+                P, dPdrho, dPde = eosinter.Pall(rho, ei, self.eosfile)
 
                 self.data = ne.evaluate("dPde/rho+1.0")
                 self.unit = ""
@@ -1499,33 +1377,10 @@ class MainWindow(QtGui.QMainWindow):
                 rho = self.modelfile[self.modelind].dataset[self.dsind].box[0]["rho"].data
                 ei = self.modelfile[self.modelind].dataset[self.dsind].box[0]["ei"].data
 
-                lnx11d = np.log(self.eosfile.block[0]["x1"].data +\
-                                 self.eosfile.block[0]["x1shift"].data).flatten()
-                lnx21d = np.log(self.eosfile.block[0]["x2"].data +\
-                                 self.eosfile.block[0]["x2shift"].data).flatten()
-
-                nx1 = lnx11d.size-1
-                nx2 = lnx21d.size-1
-
-                x1fac = float(nx1) / (lnx11d.max() - lnx11d.min())
-                x2fac = float(nx2) / (lnx21d.max() - lnx21d.min())
-
-                coef = np.transpose(self.eosfile.block[0]["c1"].data)
-
-                x2_shift = self.eosfile.block[0]["x2shift"].data
-
-                coef = np.transpose(self.eosfile.block[0]["c2"].data)
-                P = eosinter.eosinterp(rho, ei, lnx11d, lnx21d,
-                                               x1fac, x2fac, x2_shift, coef)
-
-                coef = np.transpose(self.eosfile.block[0]["c3"].data)
-                T = eosinter.eosintert(rho, ei, lnx11d, lnx21d,
-                                               x1fac, x2fac, x2_shift, coef)
+                P,_ = eosinter.STP(rho, ei, self.eosfile)
+                T,_ = eosinter.STP(rho, ei, self.eosfile, quantity='Temperature')
 
                 self.data = interpolate.interp2d(10.0**self.opapress,10.0**self.opatemp,self.opa[:,0,:])(P.ravel(),T.ravel())
-
-                print(np.shape(self.data))
-
                 self.unit = "1/cm"
             else:
                 self.data = self.modelfile[self.modelind].dataset[self.dsind].\
