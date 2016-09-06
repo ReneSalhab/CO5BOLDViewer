@@ -2,7 +2,7 @@
 """
 Created on Tue Nov 05 10:12:33 2013
 
-@author: Rene Georg
+@author: René Georg Salhab
 """
 
 from __future__ import print_function
