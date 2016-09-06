@@ -2,7 +2,7 @@
 """
 Created on Mon Nov 16 19:27:59 2015
 
-@author: René
+@author: René Georg Salhab
 """
 
 import numexpr as ne
