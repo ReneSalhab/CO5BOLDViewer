@@ -2,7 +2,7 @@
 """
 Created on Tue Nov 05 10:12:33 2013
 
-@author: René Georg Salhab
+@author: Rene Georg
 """
 
 from __future__ import print_function
@@ -13,7 +13,7 @@ import math
 import bisect
 import numpy as np
 import numexpr as ne
-from scipy import interpolate
+from scipy import interpolate as ip
 
 #import matplotlib as mpl
 #mpl.rcParams['backend.qt4']='PySide'
@@ -98,8 +98,8 @@ class MainWindow(QtGui.QMainWindow):
 
         # --- eos-file ---
 
-        self.noeos = True
-        self.noopa = True
+        self.eos = False
+        self.opa = False
 
         self.stdDir = None
 
@@ -330,7 +330,7 @@ class MainWindow(QtGui.QMainWindow):
 
             self.eosfile = uio_eos.File(self.eosname)
 
-            if self.noeos:
+            if not self.eos:
                 self.dataTypeList[1]["Temperature"] = "temp"
                 self.dataTypeList[1]["Entropy"] = "entr"
                 self.dataTypeList[1]["Pressure"] = "press"
@@ -353,14 +353,14 @@ class MainWindow(QtGui.QMainWindow):
                 self.dataTypeCombo.addItem("Plasma beta")
                 self.dataTypeCombo.addItem("c_s / c_A")
 
-            if not self.noopa:
+            if self.opa:
                 self.dataTypeList[1]["Opacity"] = "opa"
                 self.dataTypeList[1]["Optical depth"] = "optdep"
 
                 self.dataTypeCombo.addItem("Opacity")
                 self.dataTypeCombo.addItem("Optical depth")
 
-            self.noeos = False
+            self.eos = True
 
             QtGui.QApplication.restoreOverrideCursor()
             self.statusBar().showMessage("Done")
@@ -381,14 +381,14 @@ class MainWindow(QtGui.QMainWindow):
 
             self.opatemp, self.opapress, self.opa = ropa.read_opta(self.opaname)
 
-            if not self.noeos:
+            if self.eos:
                 self.dataTypeList[1]["Opacity"] = "opa"
                 self.dataTypeList[1]["Optical depth"] = "optdep"
 
                 self.dataTypeCombo.addItem("Opacity")
                 self.dataTypeCombo.addItem("Optical depth")
 
-            self.noopa = False
+            self.opa = False
 
             QtGui.QApplication.restoreOverrideCursor()
             self.statusBar().showMessage("Done")
@@ -1028,8 +1028,7 @@ class MainWindow(QtGui.QMainWindow):
     def setPlotData(self):
         self.statusBar().showMessage("Initialize arrays...")
         start = time.time()
-        clight = 2.998e5
-        clight = clight
+        clight = 2.998e10
         const = 4.0 * np.pi
 
         QtGui.QApplication.setOverrideCursor(QtGui.QCursor(QtCore.Qt.WaitCursor))
@@ -1074,20 +1073,20 @@ class MainWindow(QtGui.QMainWindow):
                 x1 = self.modelfile[0].dataset[0].box[0]["xb1"].data.squeeze()*1.e-5
                 bb1 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb1"].data
 
-                self.data = interpolate.interp1d(x1, bb1)(self.x1)* math.sqrt(const)
+                self.data = ip.interp1d(x1, bb1, copy=False)(self.x1)*math.sqrt(const)
                 self.unit = "G"
             elif self.dataTypeCombo.currentText() == "Magnetic field By":
                 x2 = self.modelfile[0].dataset[0].box[0]["xb2"].data.squeeze()*1.e-5
                 bb2 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb2"].data
 
-                self.data = interpolate.interp1d(x2, bb2, axis=1)(self.x2)* math.sqrt(const)
+                self.data = ip.interp1d(x2, bb2, axis=1, copy=False)(self.x2)* math.sqrt(const)
                 self.unit = "G"
             
             elif self.dataTypeCombo.currentText() == "Magnetic field Bz":
                 x3 = self.modelfile[0].dataset[0].box[0]["xb3"].data.squeeze()
                 bb3 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb3"].data
 
-                self.data = interpolate.interp1d(x3, bb3, axis=0)(self.x3)* math.sqrt(const)
+                self.data = ip.interp1d(x3, bb3, axis=0, copy=False)(self.x3)* math.sqrt(const)
                 self.unit = "G"
             elif self.dataTypeCombo.currentText() == "Magnetic field Bh (horizontal)":
                 x1 = self.modelfile[0].dataset[0].box[0]["xb1"].data.squeeze()*1.e-5
@@ -1096,8 +1095,8 @@ class MainWindow(QtGui.QMainWindow):
                 bb1 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb1"].data
                 bb2 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb2"].data
 
-                bc1 = interpolate.interp1d(x1, bb1)(self.x1)
-                bc2 = interpolate.interp1d(x2, bb2, axis=1)(self.x2)
+                bc1 = ip.interp1d(x1, bb1, copy=False)(self.x1)
+                bc2 = ip.interp1d(x2, bb2, axis=1, copy=False)(self.x2)
 
                 self.data = ne.evaluate("sqrt((bc1**2.0+bc2**2.0)*const)")
                 self.unit = "G"
@@ -1110,9 +1109,9 @@ class MainWindow(QtGui.QMainWindow):
                 bb2 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb2"].data
                 bb3 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb3"].data
 
-                bc1 = interpolate.interp1d(x1, bb1, copy=False)(self.x1)
-                bc2 = interpolate.interp1d(x2, bb2, axis=1, copy=False)(self.x2)
-                bc3 = interpolate.interp1d(x3, bb3, axis=0, copy=False)(self.x3)
+                bc1 = ip.interp1d(x1, bb1, copy=False)(self.x1)
+                bc2 = ip.interp1d(x2, bb2, axis=1, copy=False)(self.x2)
+                bc3 = ip.interp1d(x3, bb3, axis=0, copy=False)(self.x3)
 
                 self.data = ne.evaluate("sqrt((bc1*bc1+bc2*bc2+bc3*bc3)*const)")
                 self.unit = "G"
@@ -1129,18 +1128,18 @@ class MainWindow(QtGui.QMainWindow):
                 sm = np.ones(sn.shape)
                 sm[:,:,:] = -1.0
 
-                bc1 = interpolate.interp1d(x1, bb1)(self.x1)
+                bc1 = ip.interp1d(x1, bb1)(self.x1)
 
                 sn = np.where(bc1 < 0.0, -1.0, sn)
                 self.data = ne.evaluate("sn*bc1**2")
 
-                bc2 = interpolate.interp1d(x2, bb2, axis=1)(self.x2)
+                bc2 = ip.interp1d(x2, bb2, axis=1)(self.x2)
 
                 sn[:,:,:] = 1.0
                 sn = np.where(bc2 < 0.0, -1.0, sn)
                 self.data += ne.evaluate("sn*bc2**2")
 
-                bc3 = interpolate.interp1d(x3, bb3, axis=0, copy=False)(self.x3)
+                bc3 = ip.interp1d(x3, bb3, axis=0, copy=False)(self.x3)
 
                 sn[:,:,:] = 1.0
                 sn = np.where(bc3 < 0.0, -1.0, sn)
@@ -1156,8 +1155,8 @@ class MainWindow(QtGui.QMainWindow):
                 A = np.diff(x1) * np.diff(x2)                        
                 bb3 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb3"].data
                 
-                self.data = interpolate.interp1d(x3, bb3, axis=0, copy=False)(self.x3)\
-                            *math.sqrt(const) * A
+                self.data = ip.interp1d(x3, bb3, axis=0, copy=False)(self.x3)\
+                            * math.sqrt(const) * A
                 self.unit = "G*km^2"
             elif self.dataTypeCombo.currentText() == "Vert. magnetic gradient Bz/dz":
                 x3 = self.modelfile[0].dataset[0].box[0]["xb3"].data.squeeze()*1.e-5
@@ -1178,9 +1177,9 @@ class MainWindow(QtGui.QMainWindow):
                 bb2 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb2"].data
                 bb3 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb3"].data
 
-                bc1 = interpolate.interp1d(x1, bb1, copy=False)(self.x1)
-                bc2 = interpolate.interp1d(x2, bb2, axis=1, copy=False)(self.x2)
-                bc3 = interpolate.interp1d(x3, bb3, axis=0, copy=False)(self.x3)
+                bc1 = ip.interp1d(x1, bb1, copy=False)(self.x1)
+                bc2 = ip.interp1d(x2, bb2, axis=1, copy=False)(self.x2)
+                bc3 = ip.interp1d(x3, bb3, axis=0, copy=False)(self.x3)
 
                 self.data = ne.evaluate("bc1**2+bc2**2+bc3**2") / 2.0
                 self.unit = "G^2"
@@ -1194,9 +1193,9 @@ class MainWindow(QtGui.QMainWindow):
                 bb2 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb2"].data
                 bb3 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb3"].data
 
-                bc1 = interpolate.interp1d(x1, bb1, copy=False)(self.x1)
-                bc2 = interpolate.interp1d(x2, bb2, axis=1, copy=False)(self.x2)
-                bc3 = interpolate.interp1d(x3, bb3, axis=0, copy=False)(self.x3)
+                bc1 = ip.interp1d(x1, bb1, copy=False)(self.x1)
+                bc2 = ip.interp1d(x2, bb2, axis=1, copy=False)(self.x2)
+                bc3 = ip.interp1d(x3, bb3, axis=0, copy=False)(self.x3)
 
                 self.data = ne.evaluate("sqrt((bc1**2+bc2**2+bc3**2)/rho)")
                 self.unit = "cm/s"
@@ -1208,14 +1207,14 @@ class MainWindow(QtGui.QMainWindow):
                 bb2 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb2"].data
                 bb3 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb3"].data
 
-                bc2 = interpolate.interp1d(x2, bb2, axis=1, copy=False)(self.x2)
-                bc3 = interpolate.interp1d(x3, bb3, axis=0, copy=False)(self.x3)
+                bc2 = ip.interp1d(x2, bb2, axis=1, copy=False)(self.x2)
+                bc3 = ip.interp1d(x3, bb3, axis=0, copy=False)(self.x3)
 
                 dbzdy=sc.partialderiv(bc3, self.x2, x2, 2)
                 dbydz=sc.partialderiv(bc2, self.x3, x3, 3)
 
                 self.data = ne.evaluate("clight*(dbzdy-dbydz)/sqrt(const)")
-                self.unit = ""
+                self.unit = "G/s"
             elif self.dataTypeCombo.currentText() == "Electric current density jy":
                 x1 = self.modelfile[0].dataset[0].box[0]["xb1"].data.squeeze()*1.e-5
                 x2 = self.modelfile[0].dataset[0].box[0]["xb2"].data.squeeze()*1.e-5
@@ -1224,14 +1223,14 @@ class MainWindow(QtGui.QMainWindow):
                 bb1 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb1"].data
                 bb3 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb3"].data
 
-                bc1 = interpolate.interp1d(x1, bb1, copy=False)(self.x1)
-                bc3 = interpolate.interp1d(x3, bb3, axis=0, copy=False)(self.x3)
+                bc1 = ip.interp1d(x1, bb1, copy=False)(self.x1)
+                bc3 = ip.interp1d(x3, bb3, axis=0, copy=False)(self.x3)
 
                 dbxdz=sc.partialderiv(bc1, self.x3, x3, 3)
                 dbzdx=sc.partialderiv(bc3, self.x1, x1, 1)
 
                 self.data = ne.evaluate("clight*(dbxdz-dbzdx)/sqrt(const)")
-                self.unit = ""
+                self.unit = "G/s"
             elif self.dataTypeCombo.currentText() == "Electric current density jz":
                 x1 = self.modelfile[0].dataset[0].box[0]["xb1"].data.squeeze()*1.e-5
                 x2 = self.modelfile[0].dataset[0].box[0]["xb2"].data.squeeze()*1.e-5
@@ -1240,14 +1239,14 @@ class MainWindow(QtGui.QMainWindow):
                 bb1 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb1"].data
                 bb2 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb2"].data
 
-                bc1 = interpolate.interp1d(x1, bb1, copy=False)(self.x1)
-                bc2 = interpolate.interp1d(x2, bb2, axis=1, copy=False)(self.x2)
+                bc1 = ip.interp1d(x1, bb1, copy=False)(self.x1)
+                bc2 = ip.interp1d(x2, bb2, axis=1, copy=False)(self.x2)
 
                 dbydx=sc.partialderiv(bc2, self.x1, x1, 1)
                 dbxdy=sc.partialderiv(bc1, self.x2, x2, 2)
 
                 self.data = ne.evaluate("clight*(dbydx-dbxdy)/sqrt(const)")
-                self.unit = ""
+                self.unit = "G/s"
             elif self.dataTypeCombo.currentText() == "Electric current density |j|":
                 x1 = self.modelfile[0].dataset[0].box[0]["xb1"].data.squeeze()*1.e-5
                 x2 = self.modelfile[0].dataset[0].box[0]["xb2"].data.squeeze()*1.e-5
@@ -1257,27 +1256,21 @@ class MainWindow(QtGui.QMainWindow):
                 bb2 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb2"].data
                 bb3 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb3"].data
 
-                bc1 = interpolate.interp1d(x1, bb1, copy=False)(self.x1)
-                bc2 = interpolate.interp1d(x2, bb2, axis=1, copy=False)(self.x2)
-                bc3 = interpolate.interp1d(x3, bb3, axis=0, copy=False)(self.x3)
+                bc1 = ip.interp1d(x1, bb1, copy=False)(self.x1)
+                bc2 = ip.interp1d(x2, bb2, axis=1, copy=False)(self.x2)
+                bc3 = ip.interp1d(x3, bb3, axis=0, copy=False)(self.x3)
 
                 dbzdy=sc.partialderiv(bc3, self.x2, x2, 2)
                 dbydz=sc.partialderiv(bc2, self.x3, x3, 3)
 
-                jx = ne.evaluate("clight*(dbzdy-dbydz)/sqrt(const)")
-
                 dbxdz=sc.partialderiv(bc1, self.x3, x3, 3)
                 dbzdx=sc.partialderiv(bc3, self.x1, x1, 1)
-
-                jy = ne.evaluate("clight*(dbxdz-dbzdx)/sqrt(const)")
 
                 dbydx=sc.partialderiv(bc2, self.x1, x1, 1)
                 dbxdy=sc.partialderiv(bc1, self.x2, x2, 2)
 
-                jz = ne.evaluate("clight*(dbydx-dbxdy)/sqrt(const)")
-
-                self.data = ne.evaluate("sqrt(jx*jx+jy*jy+jz*jz)")
-                self.unit = ""
+                self.data = ne.evaluate("clight*sqrt(((dbzdy-dbydz)**2+(dbxdz-dbzdx)**2+(dbydx-dbxdy)**2)/const)")
+                self.unit = "G/s"
             elif self.dataTypeCombo.currentText() in ["Entropy", "Pressure",
                                                       "Temperature"]:
                 rho = self.modelfile[self.modelind].dataset[self.dsind].box[0]["rho"].data
@@ -1294,9 +1287,9 @@ class MainWindow(QtGui.QMainWindow):
                 bb2 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb2"].data
                 bb3 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb3"].data
 
-                bc1 = interpolate.interp1d(x1, bb1, copy=False)(self.x1)
-                bc2 = interpolate.interp1d(x2, bb2, axis=1, copy=False)(self.x2)
-                bc3 = interpolate.interp1d(x3, bb3, axis=0, copy=False)(self.x3)
+                bc1 = ip.interp1d(x1, bb1, copy=False)(self.x1)
+                bc2 = ip.interp1d(x2, bb2, axis=1, copy=False)(self.x2)
+                bc3 = ip.interp1d(x3, bb3, axis=0, copy=False)(self.x3)
 
                 rho = self.modelfile[self.modelind].dataset[self.dsind].box[0]["rho"].data
                 ei = self.modelfile[self.modelind].dataset[self.dsind].box[0]["ei"].data
@@ -1309,7 +1302,6 @@ class MainWindow(QtGui.QMainWindow):
                 rho = self.modelfile[self.modelind].dataset[self.dsind].box[0]["rho"].data
                 ei = self.modelfile[self.modelind].dataset[self.dsind].box[0]["ei"].data
 
-                coef = np.transpose(self.eosfile.block[0]["c2"].data)
                 P, dPdrho, dPde = eosinter.Pall(rho, ei, self.eosfile)
 
                 self.data = ne.evaluate("sqrt(P*dPde/(rho**2.0)+dPdrho)")
@@ -1328,9 +1320,9 @@ class MainWindow(QtGui.QMainWindow):
                 bb2 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb2"].data
                 bb3 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb3"].data
 
-                bc1 = interpolate.interp1d(x1, bb1, copy=False)(self.x1)
-                bc2 = interpolate.interp1d(x2, bb2, axis=1, copy=False)(self.x2)
-                bc3 = interpolate.interp1d(x3, bb3, axis=0, copy=False)(self.x3)
+                bc1 = ip.interp1d(x1, bb1, copy=False)(self.x1)
+                bc2 = ip.interp1d(x2, bb2, axis=1, copy=False)(self.x2)
+                bc3 = ip.interp1d(x3, bb3, axis=0, copy=False)(self.x3)
 
                 self.data = ne.evaluate("sqrt(P*dPde/(rho**2)+dPdrho)/sqrt((bc1**2+bc2**2+bc3**2)/rho)")
                 self.unit = ""
@@ -1380,7 +1372,7 @@ class MainWindow(QtGui.QMainWindow):
                 P,_ = eosinter.STP(rho, ei, self.eosfile)
                 T,_ = eosinter.STP(rho, ei, self.eosfile, quantity='Temperature')
 
-                self.data = interpolate.interp2d(10.0**self.opapress,10.0**self.opatemp,self.opa[:,0,:])(P.ravel(),T.ravel())
+                self.data = ip.interp2d(10.0**self.opapress,10.0**self.opatemp,self.opa[:,0,:], copy=False)(P.ravel(),T.ravel())
                 self.unit = "1/cm"
             else:
                 self.data = self.modelfile[self.modelind].dataset[self.dsind].\
