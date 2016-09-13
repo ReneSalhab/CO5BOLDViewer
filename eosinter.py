@@ -2,7 +2,7 @@
 """
 Created on Mon Nov 16 19:27:59 2015
 
-@author: René Georg Salhab
+@author: René
 """
 
 import numexpr as ne
@@ -59,9 +59,9 @@ def STP(rho, ei, eosfile, quantity='Pressure'):
                             x1ta*(C7+x1ta*C8))+x2ta*(C9+x1ta*(C10+x1ta*(C11+\
                             x1ta*C12))+x2ta*(C13+x1ta*(C14+x1ta*(C15+x1ta*C16)))))'), unit
     elif quantity in ["Pressure","Temperature"]:
-        return ne.evaluate('exp(C1+x1t*(C2+x1t*(C3+x1t*C4))+x2t*(C5+x1t*(C6+\
-                            x1t*(C7+x1t*C8))+x2t*(C9+x1t*(C10+x1t*(C11+x1t*C12))+\
-                            x2t*(C13+x1t*(C14+x1t*(C15+x1t*C16))))))'), unit
+        return ne.evaluate('exp(C1+x1ta*(C2+x1ta*(C3+x1ta*C4))+x2ta*(C5+x1ta*(C6+\
+                            x1ta*(C7+x1ta*C8))+x2ta*(C9+x1ta*(C10+x1ta*(C11+x1ta*C12))+\
+                            x2ta*(C13+x1ta*(C14+x1ta*(C15+x1ta*C16))))))'), unit
 
 def Pall(rho, ei, eosfile):
     C = eosfile.block[0]["c2"].data.T
@@ -101,15 +101,15 @@ def Pall(rho, ei, eosfile):
     C1,C2,C3,C4,C5,C6,C7,C8,C9,C10,C11,C12,C13,C14,C15,C16 = C
     x1ta = lnx1 - lnx11d
     x2ta = lnx2 - lnx21d
-    P = ne.evaluate('exp(C1+x1t*(C2+x1t*(C3+x1t*C4))+x2t*(C5+x1t*(C6+x1t*(C7+\
-                     x1t*C8))+x2t*(C9+x1t*(C10+x1t*(C11+x1t*C12))+x2t*(C13+x1t*(\
-                     C14 + x1t*(C15 + x1t*C16))))))')
-    dPdrho = ne.evaluate('P/rho*(C2+x1t*(2*C3+x1t*3*C4)+x2t*(C6+x1t*(2*C7+x1t*3*C8)+\
-                          x2t*(C10+x1t*(2*C11+x1t*3*C12)+x2t*(C14+x1t*(2*C15+\
-                          x1t*3*C16)))))')
-    dPde = ne.evaluate('P/(e+x2_shift)*(C5+x1t*(C6+x1t*(C7+x1t*C8))+2*x2t*(C9+\
-                        x1t*(C10+x1t*(C11+x1t*C12))+1.5*x2t*(C13+x1t*(C14+x1t*\
-                        (C15+x1t*C16)))))')
+    P = ne.evaluate('exp(C1+x1ta*(C2+x1ta*(C3+x1ta*C4))+x2ta*(C5+x1ta*(C6+x1ta*(C7+\
+                     x1ta*C8))+x2ta*(C9+x1ta*(C10+x1ta*(C11+x1ta*C12))+x2ta*(C13+x1ta*(\
+                     C14 + x1ta*(C15 + x1ta*C16))))))')
+    dPdrho = ne.evaluate('P/rho*(C2+x1ta*(2*C3+x1ta*3*C4)+x2ta*(C6+x1ta*(2*C7+x1ta*3*C8)+\
+                          x2ta*(C10+x1ta*(2*C11+x1ta*3*C12)+x2ta*(C14+x1ta*(2*C15+\
+                          x1ta*3*C16)))))')
+    dPde = ne.evaluate('P/(ei+x2_shift)*(C5+x1ta*(C6+x1ta*(C7+x1ta*C8))+2*x2ta*(C9+\
+                        x1ta*(C10+x1ta*(C11+x1ta*C12))+1.5*x2ta*(C13+x1ta*(C14+x1ta*\
+                        (C15+x1ta*C16)))))')
     return P, dPdrho, dPde
 
 def Tall(rho, ei, eosfile, C):
@@ -147,10 +147,10 @@ def Tall(rho, ei, eosfile, C):
     C1,C2,C3,C4,C5,C6,C7,C8,C9,C10,C11,C12,C13,C14,C15,C16 = C
     x1ta = lnx1 - lnx11d
     x2ta = lnx2 - lnx21d
-    T = ne.evaluate('exp(C1+x1t*(C2+x1t*(C3+x1t*C4))+x2t*(C5+x1t*(C6+x1t*(C7+\
-                     x1t*C8))+x2t*(C9+x1t*(C10+x1t*(C11+x1t*C12))+x2t*(C13+x1t*(\
-                     C14+x1t*(C15+x1t*C16))))))')
-    dTde = ne.evaluate('T/(e+x2_shift)*(C5+x1t*(C6+x1t*(C7+x1t*C8))+2*x2t*(C9+\
-                        x1t*(C10+x1t*(C11+x1t*C12))+1.5*x2t*(C13+x1t*(C14+x1t*\
-                        (C15+x1t*C16)))))')
+    T = ne.evaluate('exp(C1+x1ta*(C2+x1ta*(C3+x1ta*C4))+x2ta*(C5+x1ta*(C6+x1ta*(C7+\
+                     x1ta*C8))+x2ta*(C9+x1ta*(C10+x1ta*(C11+x1ta*C12))+x2ta*(C13+x1ta*(\
+                     C14+x1ta*(C15+x1ta*C16))))))')
+    dTde = ne.evaluate('T/(ei+x2_shift)*(C5+x1ta*(C6+x1ta*(C7+x1ta*C8))+2*x2ta*(C9+\
+                        x1ta*(C10+x1ta*(C11+x1ta*C12))+1.5*x2ta*(C13+x1ta*(C14+x1ta*\
+                        (C15+x1ta*C16)))))')
     return T, dTde
