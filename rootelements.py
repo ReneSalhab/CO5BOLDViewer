@@ -14,6 +14,7 @@ import bisect
 import numpy as np
 import numexpr as ne
 from scipy import interpolate as ip
+from scipy import integrate as integ
 
 #import matplotlib as mpl
 #mpl.rcParams['backend.qt4']='PySide'
@@ -40,6 +41,26 @@ class MainWindow(QtGui.QMainWindow):
 
         self.initUI()
 
+    def _chunks(self, l, n):
+        n = max(1, n)
+        return np.array([l[i:i + n] for i in range(0, len(l), n)])
+
+    def cumsimp(func,a,b,num):
+        #Integrate func from a to b using num intervals.
+
+        num*=2
+        a=float(a)
+        b=float(b)
+        h=(b-a)/num
+
+        output=4*func(a+h*np.arange(1,num,2))
+        tmp=func(a+h*np.arange(2,num-1,2))
+        output[1:]+=tmp
+        output[:-1]+=tmp 
+        output[0]+=func(a)
+        output[-1]+=func(b)
+        return np.cumsum(output*h/3)
+
     def initUI(self):
 
         self.centralWidget = QtGui.QWidget(self)
@@ -63,7 +84,7 @@ class MainWindow(QtGui.QMainWindow):
 
         # --- Timeline place-holder ---
 
-        self.time = np.linspace(0,100, num = 100)
+        self.time = np.zeros((2,3))
 
         # --- position of observer ---
 
@@ -73,9 +94,9 @@ class MainWindow(QtGui.QMainWindow):
 
         # --- Axes of plot ---
 
-        self.x1 = np.linspace(0,100,num = 100)
-        self.x2 = np.linspace(0,100,num = 100)
-        self.x3 = np.linspace(0,100,num = 100)
+        self.xc1 = np.linspace(0,100,num = 100)
+        self.xc2 = np.linspace(0,100,num = 100)
+        self.xc3 = np.linspace(0,100,num = 100)
 
         # --- Arbitrary parameters ---
 
@@ -84,8 +105,7 @@ class MainWindow(QtGui.QMainWindow):
         self.direction = 0
         self.dim = 0
 
-        self.data=np.array([[self.x1[i] * self.x2[j]
-                    for i in range(len(self.x1))]for j in range(len(self.x2))])
+        self.data = np.outer(self.xc1,self.xc2)
 
         # --- Available Colormaps ---
 
@@ -187,9 +207,9 @@ class MainWindow(QtGui.QMainWindow):
 
         sc.showImageSaveDialog(self.modelfile, self.data,
                                self.timeSlider.value(), self.dataTypeCombo.currentText(),
-                               self.time, self.x1Slider.value(), self.x1,
-                               self.x2Slider.value(), self.x2,
-                               self.x3Slider.value(), self.x3,
+                               self.time[:,0], self.x1Slider.value(), self.xc1,
+                               self.x2Slider.value(), self.xc2,
+                               self.x3Slider.value(), self.xc3,
                                self.cmCombo.currentIndex(),
                                self.dataTypeCombo.currentIndex())
 
@@ -304,12 +324,12 @@ class MainWindow(QtGui.QMainWindow):
             if fil == "HDF5 file (*.h5)":
                 self.statusBar().showMessage("Save HDF5-file...")
                 sc.saveHD5(fname, self.modelfile[self.modelind], self.dataTypeCombo.currentText(),
-                           self.data, self.time[self.timind], (self.x1ind,
+                           self.data, self.time[self.timind,0], (self.x1ind,
                            self.x2ind,self.x3ind), self.planeCombo.currentText())
             elif fil == "FITS file (*.fits)":
                 self.statusBar().showMessage("Save FITS-file...")
                 sc.saveFits(fname, self.modelfile[self.modelind], self.dataTypeCombo.currentText(),
-                            self.data, self.time[self.timind], (self.x1ind,
+                            self.data, self.time[self.timind,0], (self.x1ind,
                             self.x2ind,self.x3ind), self.planeCombo.currentText())
             QtGui.QApplication.restoreOverrideCursor()
 
@@ -379,7 +399,10 @@ class MainWindow(QtGui.QMainWindow):
             self.statusBar().showMessage("Read opacity file...")
             QtGui.QApplication.setOverrideCursor(QtGui.QCursor(QtCore.Qt.WaitCursor))
 
-            self.opatemp, self.opapress, self.opa = ropa.read_opta(self.opaname)
+            self.opatemp, self.opapress, self.opacity = ropa.read_opta(self.opaname)
+            self.opatemp = 10.0**self.opatemp
+            self.opapress = 10.0**self.opapress
+            self.opacity = np.transpose(self.opacity, axes=(1,2,0))
 
             if self.eos:
                 self.dataTypeList[1]["Opacity"] = "opa"
@@ -489,9 +512,9 @@ class MainWindow(QtGui.QMainWindow):
 
         # --- Cross-hair activation components ---
 
-        chLabel = QtGui.QLabel("cross-hair:")        
-        self.chCheck = QtGui.QCheckBox(self.centralWidget)
-        self.chCheck.setDisabled(True)
+        crossLabel = QtGui.QLabel("cross-hair:")        
+        self.crossCheck = QtGui.QCheckBox(self.centralWidget)
+        self.crossCheck.setDisabled(True)
 
         # --- Sliders for spatial directions ---
 
@@ -569,8 +592,8 @@ class MainWindow(QtGui.QMainWindow):
         posLayout.addWidget(planeLabel,0,0)
         posLayout.addWidget(self.planeCombo,0,1)
 
-        posLayout.addWidget(chLabel,0,2,1,2)
-        posLayout.addWidget(self.chCheck,0,4)
+        posLayout.addWidget(crossLabel,0,2,1,2)
+        posLayout.addWidget(self.crossCheck,0,4)
 
         posLayout.addWidget(x1SliderTitle,1,0)
         posLayout.addWidget(self.x1Slider,1,1)
@@ -657,7 +680,7 @@ class MainWindow(QtGui.QMainWindow):
         self.normMaxEdit.setObjectName("norm-max-Edit")
 
         normMeanTitle = QtGui.QLabel("Mean:")
-        self.normMeanLabel = QtGui.QLabel("{dat:13.4g}".format(dat=np.mean(self.data)))
+        self.normMeanLabel = QtGui.QLabel("{dat:13.4g}".format(dat=self.data.mean()))
         self.normMeanLabel.setDisabled(True)
 
         unitTitle = QtGui.QLabel("Unit:")
@@ -808,28 +831,39 @@ class MainWindow(QtGui.QMainWindow):
         start = time.time()
         # --- Initiate post-computed arrays ---
 
-        self.x1 = self.modelfile[0].dataset[0].box[0]["xc1"].data.squeeze()*1.e-5
-                                            
-        self.x2 = self.modelfile[0].dataset[0].box[0]["xc2"].data.squeeze()*1.e-5
-        self.x3 = self.modelfile[0].dataset[0].box[0]["xc3"].data.squeeze()*1.e-5
+        self.xc1 = self.modelfile[0].dataset[0].box[0]["xc1"].data.squeeze()*1.e-5
+        self.xc2 = self.modelfile[0].dataset[0].box[0]["xc2"].data.squeeze()*1.e-5
+        self.xc3 = self.modelfile[0].dataset[0].box[0]["xc3"].data.squeeze()*1.e-5
+
+        self.xb1 = self.modelfile[0].dataset[0].box[0]["xb1"].data.squeeze()*1.e-5
+        self.xb2 = self.modelfile[0].dataset[0].box[0]["xb2"].data.squeeze()*1.e-5
+        self.xb3 = self.modelfile[0].dataset[0].box[0]["xb3"].data.squeeze()*1.e-5
+
+        self.dx = np.diff(self.xb1).mean()
+        self.dy = np.diff(self.xb2).mean()
+        self.dz = np.diff(self.xb3).mean()
+
+        self.constGrid = np.diff(self.xb3).std() < 0.01
 
         if len(self.modelfile):
             self.time = []
             for i in range(len(self.modelfile)):
                 for j in range(len(self.modelfile[i].dataset)):
-                    self.time.append(self.modelfile[i].dataset[j]["modeltime"].data)
+                    self.time.append([self.modelfile[i].dataset[j]["modeltime"].data,i,j])
+        self.time = np.array(self.time)
+        self.timlen = len(self.time[:,0])
 
-        self.x1min = self.x1.min()
-        self.x1max = np.max(self.x1)
+        self.x1min = self.xc1.min()
+        self.x1max = self.xc1.max()
 
-        self.x2min = np.min(self.x2)
-        self.x2max = np.max(self.x2)
+        self.x2min = self.xc2.min()
+        self.x2max = self.xc2.max()
 
-        self.x3min = np.min(self.x3)
-        self.x3max = np.max(self.x3)
+        self.x3min = self.xc3.min()
+        self.x3max = self.xc3.max()
 
-        self.timemin = np.min(self.time)
-        self.timemax = np.max(self.time)
+        self.timemin = self.time[:,0].min()
+        self.timemax = self.time[:,0].max()
 
         self.typelistind = -1
 
@@ -843,16 +877,16 @@ class MainWindow(QtGui.QMainWindow):
 
         # --- determine slider boundaries ---
 
-        if len(self.time) > 1:
+        if self.timlen > 1:
             self.timeSlider.setDisabled(False)
-            self.timeSlider.setMaximum(len(self.time)-1)
+            self.timeSlider.setMaximum(self.timlen-1)
 
             self.prevTimeBtn.setDisabled(False)
             self.nextTimeBtn.setDisabled(False)
 
-        self.x1Slider.setMaximum(len(self.x1)-1)
-        self.x2Slider.setMaximum(len(self.x2)-1)
-        self.x3Slider.setMaximum(len(self.x3)-1)
+        self.x1Slider.setMaximum(len(self.xc1)-1)
+        self.x2Slider.setMaximum(len(self.xc2)-1)
+        self.x3Slider.setMaximum(len(self.xc3)-1)
 
         self.normMinEdit.setDisabled(False)
         self.normMaxEdit.setDisabled(False)
@@ -874,7 +908,7 @@ class MainWindow(QtGui.QMainWindow):
             self.vpXIncEdit.setDisabled(False)
             self.vpYIncEdit.setDisabled(False)
 
-        self.chCheck.setDisabled(False)
+        self.crossCheck.setDisabled(False)
 
         # -----------------------------------
         # --- update parameters from widgets ---
@@ -888,13 +922,13 @@ class MainWindow(QtGui.QMainWindow):
         self.plot = False
         self.x1ind = self.x1Slider.value()
         self.currentX1Edit.setText(str(self.x1ind).rjust(10))
-        self.actualX1Label.setText("{:13.1f}".format(self.x1[self.x1ind]).rjust(13))
+        self.actualX1Label.setText("{:13.1f}".format(self.xc1[self.x1ind]).rjust(13))
         self.x2ind = self.x2Slider.value()
         self.currentX2Edit.setText(str(self.x2ind).rjust(10))
-        self.actualX2Label.setText("{:13.1f}".format(self.x2[self.x2ind]).rjust(13))
+        self.actualX2Label.setText("{:13.1f}".format(self.xc2[self.x2ind]).rjust(13))
         self.x3ind = self.x3Slider.value()
         self.currentX3Edit.setText(str(self.x3ind).rjust(10))
-        self.actualX3Label.setText("{:13.1f}".format(self.x3[self.x3ind]).rjust(13))
+        self.actualX3Label.setText("{:13.1f}".format(self.xc3[self.x3ind]).rjust(13))
 
         self.setPlotData()
 
@@ -1031,6 +1065,9 @@ class MainWindow(QtGui.QMainWindow):
         clight = 2.998e10
         const = 4.0 * np.pi
 
+        ver = np.version.version
+        self.constGrid = False
+
         QtGui.QApplication.setOverrideCursor(QtGui.QCursor(QtCore.Qt.WaitCursor))
 
         if not self.meanfile:
@@ -1070,56 +1107,42 @@ class MainWindow(QtGui.QMainWindow):
                 self.data = ne.evaluate("rho*v3")
                 self.unit = "g/(cm^2 * s)"
             elif self.dataTypeCombo.currentText() == "Magnetic field Bx":
-                x1 = self.modelfile[0].dataset[0].box[0]["xb1"].data.squeeze()*1.e-5
                 bb1 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb1"].data
 
-                self.data = ip.interp1d(x1, bb1, copy=False)(self.x1)*math.sqrt(const)
+                self.data = ip.interp1d(self.xb1, bb1, copy=False)(self.xc1)*math.sqrt(const)
                 self.unit = "G"
             elif self.dataTypeCombo.currentText() == "Magnetic field By":
-                x2 = self.modelfile[0].dataset[0].box[0]["xb2"].data.squeeze()*1.e-5
                 bb2 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb2"].data
 
-                self.data = ip.interp1d(x2, bb2, axis=1, copy=False)(self.x2)* math.sqrt(const)
+                self.data = ip.interp1d(self.xb2, bb2, axis=1, copy=False)(self.xc2)* math.sqrt(const)
                 self.unit = "G"
             
             elif self.dataTypeCombo.currentText() == "Magnetic field Bz":
-                x3 = self.modelfile[0].dataset[0].box[0]["xb3"].data.squeeze()
                 bb3 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb3"].data
 
-                self.data = ip.interp1d(x3, bb3, axis=0, copy=False)(self.x3)* math.sqrt(const)
+                self.data = ip.interp1d(self.xb3, bb3, axis=0, copy=False)(self.xc3)* math.sqrt(const)
                 self.unit = "G"
             elif self.dataTypeCombo.currentText() == "Magnetic field Bh (horizontal)":
-                x1 = self.modelfile[0].dataset[0].box[0]["xb1"].data.squeeze()*1.e-5
-                x2 = self.modelfile[0].dataset[0].box[0]["xb2"].data.squeeze()*1.e-5
-
                 bb1 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb1"].data
                 bb2 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb2"].data
 
-                bc1 = ip.interp1d(x1, bb1, copy=False)(self.x1)
-                bc2 = ip.interp1d(x2, bb2, axis=1, copy=False)(self.x2)
+                bc1 = ip.interp1d(self.xb1, bb1, copy=False)(self.xc1)
+                bc2 = ip.interp1d(self.xb2, bb2, axis=1, copy=False)(self.xc2)
 
                 self.data = ne.evaluate("sqrt((bc1**2.0+bc2**2.0)*const)")
                 self.unit = "G"
             elif self.dataTypeCombo.currentText() == "Magnetic f.abs.|B|, unsigned":
-                x1 = self.modelfile[0].dataset[0].box[0]["xb1"].data.squeeze()*1.e-5
-                x2 = self.modelfile[0].dataset[0].box[0]["xb2"].data.squeeze()*1.e-5
-                x3 = self.modelfile[0].dataset[0].box[0]["xb3"].data.squeeze()*1.e-5
-
                 bb1 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb1"].data
                 bb2 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb2"].data
                 bb3 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb3"].data
 
-                bc1 = ip.interp1d(x1, bb1, copy=False)(self.x1)
-                bc2 = ip.interp1d(x2, bb2, axis=1, copy=False)(self.x2)
-                bc3 = ip.interp1d(x3, bb3, axis=0, copy=False)(self.x3)
+                bc1 = ip.interp1d(self.xb1, bb1, copy=False)(self.xc1)
+                bc2 = ip.interp1d(self.xb2, bb2, axis=1, copy=False)(self.xc2)
+                bc3 = ip.interp1d(self.xb3, bb3, axis=0, copy=False)(self.xc3)
 
                 self.data = ne.evaluate("sqrt((bc1*bc1+bc2*bc2+bc3*bc3)*const)")
                 self.unit = "G"
             elif self.dataTypeCombo.currentText() == "Magnetic field B^2, signed":
-                x1 = self.modelfile[0].dataset[0].box[0]["xb1"].data.squeeze()*1.e-5
-                x2 = self.modelfile[0].dataset[0].box[0]["xb2"].data.squeeze()*1.e-5
-                x3 = self.modelfile[0].dataset[0].box[0]["xb3"].data.squeeze()*1.e-5
-
                 bb1 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb1"].data
                 bb2 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb2"].data
                 bb3 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb3"].data
@@ -1128,18 +1151,18 @@ class MainWindow(QtGui.QMainWindow):
                 sm = np.ones(sn.shape)
                 sm[:,:,:] = -1.0
 
-                bc1 = ip.interp1d(x1, bb1)(self.x1)
+                bc1 = ip.interp1d(self.xb1, bb1)(self.xc1)
 
                 sn = np.where(bc1 < 0.0, -1.0, sn)
                 self.data = ne.evaluate("sn*bc1**2")
 
-                bc2 = ip.interp1d(x2, bb2, axis=1)(self.x2)
+                bc2 = ip.interp1d(self.xb2, bb2, axis=1)(self.xc2)
 
                 sn[:,:,:] = 1.0
                 sn = np.where(bc2 < 0.0, -1.0, sn)
                 self.data += ne.evaluate("sn*bc2**2")
 
-                bc3 = ip.interp1d(x3, bb3, axis=0, copy=False)(self.x3)
+                bc3 = ip.interp1d(self.xb3, bb3, axis=0, copy=False)(self.xc3)
 
                 sn[:,:,:] = 1.0
                 sn = np.where(bc3 < 0.0, -1.0, sn)
@@ -1148,128 +1171,135 @@ class MainWindow(QtGui.QMainWindow):
                 self.data *= const
                 self.unit = "G^2"
             elif self.dataTypeCombo.currentText() == "Vert. magnetic flux Bz*Az":
-                x1 = self.modelfile[0].dataset[0].box[0]["xb1"].data.squeeze()*1.e-5
-                x2 = self.modelfile[0].dataset[0].box[0]["xb2"].data.squeeze()*1.e-5
-                x3 = self.modelfile[0].dataset[0].box[0]["xb3"].data.squeeze()*1.e-5
-                
-                A = np.diff(x1) * np.diff(x2)                        
+                A = np.diff(self.xb1) * np.diff(self.xb2)                        
                 bb3 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb3"].data
                 
-                self.data = ip.interp1d(x3, bb3, axis=0, copy=False)(self.x3)\
+                self.data = ip.interp1d(self.xb3, bb3, axis=0, copy=False)(self.xc3)\
                             * math.sqrt(const) * A
                 self.unit = "G*km^2"
             elif self.dataTypeCombo.currentText() == "Vert. magnetic gradient Bz/dz":
                 x3 = self.modelfile[0].dataset[0].box[0]["xb3"].data.squeeze()*1.e-5
                 bb3 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb3"].data
                 dz = np.diff(x3)
-                
+
                 self.data = math.sqrt(const) * np.diff(bb3,axis=0)/dz[:,
                                                                       np.newaxis,
                                                                       np.newaxis]
                 self.unit = "G/km"
             elif self.dataTypeCombo.currentText() == "Magnetic energy":
-
-                x1 = self.modelfile[0].dataset[0].box[0]["xb1"].data.squeeze()*1.e-5
-                x2 = self.modelfile[0].dataset[0].box[0]["xb2"].data.squeeze()*1.e-5
-                x3 = self.modelfile[0].dataset[0].box[0]["xb3"].data.squeeze()*1.e-5
-
                 bb1 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb1"].data
                 bb2 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb2"].data
                 bb3 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb3"].data
 
-                bc1 = ip.interp1d(x1, bb1, copy=False)(self.x1)
-                bc2 = ip.interp1d(x2, bb2, axis=1, copy=False)(self.x2)
-                bc3 = ip.interp1d(x3, bb3, axis=0, copy=False)(self.x3)
+                bc1 = ip.interp1d(self.xb1, bb1, copy=False)(self.xc1)
+                bc2 = ip.interp1d(self.xb2, bb2, axis=1, copy=False)(self.xc2)
+                bc3 = ip.interp1d(self.xb3, bb3, axis=0, copy=False)(self.xc3)
 
                 self.data = ne.evaluate("bc1**2+bc2**2+bc3**2") / 2.0
                 self.unit = "G^2"
             elif self.dataTypeCombo.currentText() == "Alfven speed":
-                x1 = self.modelfile[0].dataset[0].box[0]["xb1"].data.squeeze()*1.e-5
-                x2 = self.modelfile[0].dataset[0].box[0]["xb2"].data.squeeze()*1.e-5
-                x3 = self.modelfile[0].dataset[0].box[0]["xb3"].data.squeeze()*1.e-5
                 rho = self.modelfile[self.modelind].dataset[self.dsind].box[0]["rho"].data
 
                 bb1 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb1"].data
                 bb2 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb2"].data
                 bb3 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb3"].data
 
-                bc1 = ip.interp1d(x1, bb1, copy=False)(self.x1)
-                bc2 = ip.interp1d(x2, bb2, axis=1, copy=False)(self.x2)
-                bc3 = ip.interp1d(x3, bb3, axis=0, copy=False)(self.x3)
+                bc1 = ip.interp1d(self.xb1, bb1, copy=False)(self.xc1)
+                bc2 = ip.interp1d(self.xb2, bb2, axis=1, copy=False)(self.xc2)
+                bc3 = ip.interp1d(self.xb3, bb3, axis=0, copy=False)(self.xc3)
 
                 self.data = ne.evaluate("sqrt((bc1**2+bc2**2+bc3**2)/rho)")
                 self.unit = "cm/s"
             elif self.dataTypeCombo.currentText() == "Electric current density jx":
-                x1 = self.modelfile[0].dataset[0].box[0]["xb1"].data.squeeze()*1.e-5
-                x2 = self.modelfile[0].dataset[0].box[0]["xb2"].data.squeeze()*1.e-5
-                x3 = self.modelfile[0].dataset[0].box[0]["xb3"].data.squeeze()*1.e-5
-
                 bb2 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb2"].data
                 bb3 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb3"].data
 
-                bc2 = ip.interp1d(x2, bb2, axis=1, copy=False)(self.x2)
-                bc3 = ip.interp1d(x3, bb3, axis=0, copy=False)(self.x3)
+                bc2 = ip.interp1d(self.xb2, bb2, axis=1, copy=False)(self.xc2)
+                bc3 = ip.interp1d(self.xb3, bb3, axis=0, copy=False)(self.xc3)
 
-                dbzdy=sc.partialderiv(bc3, self.x2, x2, 2)
-                dbydz=sc.partialderiv(bc2, self.x3, x3, 3)
+                if self.constGrid:
+                    if ver > '1.11.0':
+                        dbzdy = np.gradient(bc3, self.dy, axis=1)
+                        dbydz = np.gradient(bc2, self.dz, axis=-1)
+                    else:
+                        _,dbzdy,_ = np.gradient(bc3, self.dz, self.dy, self.dx)
+                        dbydz,_,_ = np.gradient(bc2, self.dz, self.dy, self.dx)
+                else:
+                    dbzdy=sc.partialderiv(bc3, self.xc2, self.xb2, 1)
+                    dbydz=sc.partialderiv(bc2, self.xc3, self.xb3, 0)
 
                 self.data = ne.evaluate("clight*(dbzdy-dbydz)/sqrt(const)")
                 self.unit = "G/s"
             elif self.dataTypeCombo.currentText() == "Electric current density jy":
-                x1 = self.modelfile[0].dataset[0].box[0]["xb1"].data.squeeze()*1.e-5
-                x2 = self.modelfile[0].dataset[0].box[0]["xb2"].data.squeeze()*1.e-5
-                x3 = self.modelfile[0].dataset[0].box[0]["xb3"].data.squeeze()*1.e-5
-
                 bb1 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb1"].data
                 bb3 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb3"].data
 
-                bc1 = ip.interp1d(x1, bb1, copy=False)(self.x1)
-                bc3 = ip.interp1d(x3, bb3, axis=0, copy=False)(self.x3)
+                bc1 = ip.interp1d(self.xb1, bb1, copy=False)(self.xc1)
+                bc3 = ip.interp1d(self.xb3, bb3, axis=0, copy=False)(self.xc3)
 
-                dbxdz=sc.partialderiv(bc1, self.x3, x3, 3)
-                dbzdx=sc.partialderiv(bc3, self.x1, x1, 1)
+                if self.constGrid:
+                    if ver > '1.11.0':
+                        dbxdz = np.gradient(bc1, self.dz, axis=0)
+                        dbzdx = np.gradient(bc3, self.dx, axis=-1)
+                    else:
+                        dbxdz,_,_ = np.gradient(bc1, self.dz, self.dy, self.dx)
+                        _,_,dbzdx = np.gradient(bc3, self.dz, self.dy, self.dx)
+                else:
+                    dbxdz=sc.Deriv(bb1, self.xc3, self.xb3, 0)
+                    dbzdx=sc.Deriv(bb3, self.xc1, self.xb1)
 
                 self.data = ne.evaluate("clight*(dbxdz-dbzdx)/sqrt(const)")
                 self.unit = "G/s"
             elif self.dataTypeCombo.currentText() == "Electric current density jz":
-                x1 = self.modelfile[0].dataset[0].box[0]["xb1"].data.squeeze()*1.e-5
-                x2 = self.modelfile[0].dataset[0].box[0]["xb2"].data.squeeze()*1.e-5
-                x3 = self.modelfile[0].dataset[0].box[0]["xb3"].data.squeeze()*1.e-5
-
                 bb1 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb1"].data
                 bb2 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb2"].data
 
-                bc1 = ip.interp1d(x1, bb1, copy=False)(self.x1)
-                bc2 = ip.interp1d(x2, bb2, axis=1, copy=False)(self.x2)
+                bc1 = ip.interp1d(self.xb1, bb1, copy=False)(self.xc1)
+                bc2 = ip.interp1d(self.xb2, bb2, axis=1, copy=False)(self.xc2)
 
-                dbydx=sc.partialderiv(bc2, self.x1, x1, 1)
-                dbxdy=sc.partialderiv(bc1, self.x2, x2, 2)
+                if self.constGrid:
+                    if ver > '1.11.0':
+                        dbydx = np.gradient(bc2, self.dx, axis=-1)
+                        dbxdy = np.gradient(bc1, self.dy, axis=1)
+                    else:
+                        _,_,dbydx = np.gradient(bc2, self.dz, self.dy, self.dx)
+                        _,dbxdy,_ = np.gradient(bc1, self.dz, self.dy, self.dx)
+                else:
+                    dbydx=sc.Deriv(bb2, self.xc1, self.xb1)
+                    dbxdy=sc.Deriv(bb1, self.xc2, self.xb2, 1)
 
                 self.data = ne.evaluate("clight*(dbydx-dbxdy)/sqrt(const)")
                 self.unit = "G/s"
             elif self.dataTypeCombo.currentText() == "Electric current density |j|":
-                x1 = self.modelfile[0].dataset[0].box[0]["xb1"].data.squeeze()*1.e-5
-                x2 = self.modelfile[0].dataset[0].box[0]["xb2"].data.squeeze()*1.e-5
-                x3 = self.modelfile[0].dataset[0].box[0]["xb3"].data.squeeze()*1.e-5
-
                 bb1 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb1"].data
                 bb2 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb2"].data
                 bb3 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb3"].data
 
-                bc1 = ip.interp1d(x1, bb1, copy=False)(self.x1)
-                bc2 = ip.interp1d(x2, bb2, axis=1, copy=False)(self.x2)
-                bc3 = ip.interp1d(x3, bb3, axis=0, copy=False)(self.x3)
+                bc1 = ip.interp1d(self.xb1, bb1, copy=False)(self.xc1)
+                bc2 = ip.interp1d(self.xb2, bb2, axis=1, copy=False)(self.xc2)
+                bc3 = ip.interp1d(self.xb3, bb3, axis=0, copy=False)(self.xc3)
 
-                dbzdy=sc.partialderiv(bc3, self.x2, x2, 2)
-                dbydz=sc.partialderiv(bc2, self.x3, x3, 3)
+                if self.constGrid:
+                    if ver > '1.11.0':
+                        dbxdz,dbxdy = np.gradient(bc1, self.dz, self.dy, axis=(0,1))
+                        dbydz,dbydx = np.gradient(bc2, self.dz, self.dx, axis=(0,-1))
+                        dbzdy,dbzdx = np.gradient(bc3, self.dy, self.dx, axis=(1,-1))
+                    else:
+                        dbxdz,dbxdy,_ = np.gradient(bc1, self.dz, self.dy, self.dx)
+                        dbydz,_,dbydx = np.gradient(bc2, self.dz, self.dy, self.dx)
+                        _,dbzdy,dbzdx = np.gradient(bc3, self.dz, self.dy, self.dx)
+                else:
+                    dbzdy=sc.Deriv(bc3, self.xc2, self.xb2, 1)
+                    dbydz=sc.Deriv(bc2, self.xc3, self.xb3, 0)
+        
+                    dbxdz=sc.Deriv(bc1, self.xc3, self.xb3, 0)
+                    dbzdx=sc.Deriv(bc3, self.xc1, self.xb1)
+        
+                    dbydx=sc.Deriv(bc2, self.xc1, self.xb1)
+                    dbxdy=sc.Deriv(bc1, self.xc2, self.xb2, 1)
 
-                dbxdz=sc.partialderiv(bc1, self.x3, x3, 3)
-                dbzdx=sc.partialderiv(bc3, self.x1, x1, 1)
-
-                dbydx=sc.partialderiv(bc2, self.x1, x1, 1)
-                dbxdy=sc.partialderiv(bc1, self.x2, x2, 2)
-
-                self.data = ne.evaluate("clight*sqrt(((dbzdy-dbydz)**2+(dbxdz-dbzdx)**2+(dbydx-dbxdy)**2)/const)")
+                self.data = ne.evaluate("clight*sqrt(((dbzdy-dbydz)**2+(dbxdz-\
+                                         dbzdx)**2+(dbydx-dbxdy)**2)/const)")
                 self.unit = "G/s"
             elif self.dataTypeCombo.currentText() in ["Entropy", "Pressure",
                                                       "Temperature"]:
@@ -1279,17 +1309,13 @@ class MainWindow(QtGui.QMainWindow):
                 self.data, self.unit = eosinter.STP(rho, ei, self.eosfile,
                                                     quantity=self.dataTypeCombo.currentText())
             elif self.dataTypeCombo.currentText() == "Plasma beta":
-                x1 = self.modelfile[0].dataset[0].box[0]["xb1"].data.squeeze()*1.e-5
-                x2 = self.modelfile[0].dataset[0].box[0]["xb2"].data.squeeze()*1.e-5
-                x3 = self.modelfile[0].dataset[0].box[0]["xb3"].data.squeeze()*1.e-5
-
                 bb1 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb1"].data
                 bb2 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb2"].data
                 bb3 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb3"].data
 
-                bc1 = ip.interp1d(x1, bb1, copy=False)(self.x1)
-                bc2 = ip.interp1d(x2, bb2, axis=1, copy=False)(self.x2)
-                bc3 = ip.interp1d(x3, bb3, axis=0, copy=False)(self.x3)
+                bc1 = ip.interp1d(self.xb1, bb1, copy=False)(self.xc1)
+                bc2 = ip.interp1d(self.xb2, bb2, axis=1, copy=False)(self.xc2)
+                bc3 = ip.interp1d(self.xb3, bb3, axis=0, copy=False)(self.xc3)
 
                 rho = self.modelfile[self.modelind].dataset[self.dsind].box[0]["rho"].data
                 ei = self.modelfile[self.modelind].dataset[self.dsind].box[0]["ei"].data
@@ -1312,17 +1338,13 @@ class MainWindow(QtGui.QMainWindow):
 
                 P, dPdrho, dPde = eosinter.Pall(rho, ei, self.eosfile)
 
-                x1 = self.modelfile[0].dataset[0].box[0]["xb1"].data.squeeze() * 1.e-5
-                x2 = self.modelfile[0].dataset[0].box[0]["xb2"].data.squeeze() * 1.e-5
-                x3 = self.modelfile[0].dataset[0].box[0]["xb3"].data.squeeze() * 1.e-5
-
                 bb1 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb1"].data
                 bb2 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb2"].data
                 bb3 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb3"].data
 
-                bc1 = ip.interp1d(x1, bb1, copy=False)(self.x1)
-                bc2 = ip.interp1d(x2, bb2, axis=1, copy=False)(self.x2)
-                bc3 = ip.interp1d(x3, bb3, axis=0, copy=False)(self.x3)
+                bc1 = ip.interp1d(self.xb1, bb1, copy=False)(self.xc1)
+                bc2 = ip.interp1d(self.xb2, bb2, axis=1, copy=False)(self.xc2)
+                bc3 = ip.interp1d(self.xb3, bb3, axis=0, copy=False)(self.xc3)
 
                 self.data = ne.evaluate("sqrt(P*dPde/(rho**2)+dPdrho)/sqrt((bc1**2+bc2**2+bc3**2)/rho)")
                 self.unit = ""
@@ -1369,10 +1391,23 @@ class MainWindow(QtGui.QMainWindow):
                 rho = self.modelfile[self.modelind].dataset[self.dsind].box[0]["rho"].data
                 ei = self.modelfile[self.modelind].dataset[self.dsind].box[0]["ei"].data
 
-                P,_ = eosinter.STP(rho, ei, self.eosfile)
-                T,_ = eosinter.STP(rho, ei, self.eosfile, quantity='Temperature')
+                P,T = eosinter.PandT(rho, ei, self.eosfile)
 
-                self.data = ip.interp2d(10.0**self.opapress,10.0**self.opatemp,self.opa[:,0,:], copy=False)(P.ravel(),T.ravel())
+                self.data = 10**ip.RectBivariateSpline(self.opatemp,self.opapress,
+                                              self.opacity[0], kx=2, ky=2).ev(T,P)
+                self.unit = "1/cm"
+            elif self.dataTypeCombo.currentText() == "Optical depth":
+                rho = self.modelfile[self.modelind].dataset[self.dsind].box[0]["rho"].data
+                ei = self.modelfile[self.modelind].dataset[self.dsind].box[0]["ei"].data
+                xc3 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["xc3"].data.squeeze()
+
+                P,T = eosinter.PandT(rho, ei, self.eosfile)
+
+                op = ip.RectBivariateSpline(self.opatemp,self.opapress,
+                                            self.opacity[0], kx=2, ky=2).ev(T,P)
+                oprho = ne.evaluate('rho*10**op')
+                init = -oprho[-1].mean()
+                self.data = integ.cumtrapz(oprho[::-1],xc3, axis=0, initial=init)[::-1]
                 self.unit = "1/cm"
             else:
                 self.data = self.modelfile[self.modelind].dataset[self.dsind].\
@@ -1450,22 +1485,11 @@ class MainWindow(QtGui.QMainWindow):
 
         if sender.objectName() == "time-Slider":
             self.timind = self.timeSlider.value()
-            self.actualTimeLabel.setText("{dat:10.1f}".format(dat=self.time[self.timind]))
+            self.actualTimeLabel.setText("{dat:10.1f}".format(dat=self.time[self.timind,0]))
             self.currentTimeEdit.setText(str(self.timind))
 
-            check = False
-
-            for i in range(len(self.modelfile)):
-                for j in range(len(self.modelfile[i].dataset)):
-                    if (self.modelfile[i].dataset[j]["modeltime"].data ==
-                        self.time[self.timind]):
-                        check = True
-                        self.modelind = i
-                        self.dsind = j
-                        break
-                if check:
-                    break
-
+            self.modelind = int(self.time[self.timind,1])
+            self.dsind = int(self.time[self.timind,2])
             self.sameNorm = True
 
             self.setPlotData()
@@ -1474,7 +1498,7 @@ class MainWindow(QtGui.QMainWindow):
             self.plot = False
             self.x1ind = self.x1Slider.value()
             self.currentX1Edit.setText(str(self.x1ind).rjust(10))
-            self.actualX1Label.setText("{:10.1f}".format(self.x1[self.x1ind]).rjust(13))
+            self.actualX1Label.setText("{:10.1f}".format(self.xc1[self.x1ind]).rjust(13))
 
             if self.dataind == 0:
                 self.getTotalMinMax()
@@ -1483,7 +1507,7 @@ class MainWindow(QtGui.QMainWindow):
             self.plot = False
             self.x2ind = self.x2Slider.value()
             self.currentX2Edit.setText(str(self.x2ind).rjust(10))
-            self.actualX2Label.setText("{:10.1f}".format(self.x2[self.x2ind]).rjust(13))
+            self.actualX2Label.setText("{:10.1f}".format(self.xc2[self.x2ind]).rjust(13))
 
             if self.dataind == 0:
                 self.getTotalMinMax()
@@ -1492,7 +1516,7 @@ class MainWindow(QtGui.QMainWindow):
             self.plot = False
             self.x3ind = self.x3Slider.value()
             self.currentX3Edit.setText(str(self.x3ind).rjust(10))
-            self.actualX3Label.setText("{:10.1f}".format(self.x3[self.x3ind]).rjust(0))
+            self.actualX3Label.setText("{:10.1f}".format(self.xc3[self.x3ind]).rjust(0))
 
             if self.dataind == 0:
                 self.getTotalMinMax()
@@ -1514,8 +1538,8 @@ class MainWindow(QtGui.QMainWindow):
                     format(xdat=event.xdata, ydat=event.ydata, unit=self.unit))
 
             elif self.dim == 2:
-                idx = (np.abs(self.x1-event.xdata)).argmin()
-                idy = (np.abs(self.x2-event.ydata)).argmin()
+                idx = (np.abs(self.xc1-event.xdata)).argmin()
+                idy = (np.abs(self.xc2-event.ydata)).argmin()
 
                 self.statusBar().showMessage(
                     "x: {xdat:13.6g} km   y: {ydat:13.6g} km    value: {dat:13.6g} {unit}".
@@ -1528,8 +1552,8 @@ class MainWindow(QtGui.QMainWindow):
 
             elif self.dim == 3:
                 if self.planeCombo.currentText() == "xy":
-                    idx = (np.abs(self.x1 - event.xdata)).argmin()
-                    idy = (np.abs(self.x2 - event.ydata)).argmin()
+                    idx = (np.abs(self.xc1 - event.xdata)).argmin()
+                    idy = (np.abs(self.xc2 - event.ydata)).argmin()
 
                     self.statusBar().showMessage(
                         "x: {xdat:13.6g} km    y: {ydat:13.6g} km    value: {dat:13.6g} {unit}".
@@ -1543,8 +1567,8 @@ class MainWindow(QtGui.QMainWindow):
                                    unit=self.unit))
 
                 elif self.planeCombo.currentText() == "xz":
-                    idx = (np.abs(self.x1 - event.xdata)).argmin()
-                    idz = (np.abs(self.x3 - event.ydata)).argmin()
+                    idx = (np.abs(self.xc1 - event.xdata)).argmin()
+                    idz = (np.abs(self.xc3 - event.ydata)).argmin()
 
                     self.statusBar().showMessage(
                         "x: {xdat:13.6g} km    z: {zdat:13.6g} km    value: {dat:13.6g} {unit}".
@@ -1558,8 +1582,8 @@ class MainWindow(QtGui.QMainWindow):
                                    unit=self.unit))
 
                 elif self.planeCombo.currentText() == "yz":
-                    idy = (np.abs(self.x2 - event.xdata)).argmin()
-                    idz = (np.abs(self.x3 - event.ydata)).argmin()
+                    idy = (np.abs(self.xc2 - event.xdata)).argmin()
+                    idz = (np.abs(self.xc3 - event.ydata)).argmin()
 
                     self.statusBar().showMessage(
                         "y: {ydat:13.6g} km    z: {zdat:13.6g} km    value: {dat:13.6g} {unit}".
@@ -1577,49 +1601,48 @@ class MainWindow(QtGui.QMainWindow):
             pass
 
     def dataPlotPress(self,event):
-        try:
-            if self.dim == 3:
-                if self.planeCombo.currentText() == "xy":
-                    idx = (np.abs(self.x1 - event.xdata)).argmin()
-                    idy = (np.abs(self.x2 - event.ydata)).argmin()
+        if self.dim == 3:
+            if self.planeCombo.currentText() == "xy":
+                idx = (np.abs(self.xc1 - event.xdata)).argmin()
+                idy = (np.abs(self.xc2 - event.ydata)).argmin()
+                if self.crossCheck.isChecked():
+                    print("in")
+                    sc.PlotWidget.lP(event.xdata, event.ydata, self.x1min,
+                                     self.x1max, self.x2min, self.x2max)
+                    print("in after")
+                print("out")               
+                self.x1Slider.setValue(idx)
+                self.x2Slider.setValue(idy)
 
-                    if self.chCheck.isChecked():
-                        print("in")
-                        print(event.xdata,event.ydata,self.x1min,self.x1max,
-                              self.x2min,self.x2max)
-                        sc.PlotWidget.lP(event.xdata,event.ydata,self.x1min,
-                                         self.x1max,self.x2min,self.x2max)
-                        print("in after")
-                    print("out")               
-                    self.x1Slider.setValue(idx)
-                    self.x2Slider.setValue(idy)
+            elif self.planeCombo.currentText() == "xz":
+                idx = (np.abs(self.xc1 - event.xdata)).argmin()
+                idz = (np.abs(self.xc3 - event.ydata)).argmin()
 
-                elif self.planeCombo.currentText() == "xz":
-                    idx = (np.abs(self.x1 - event.xdata)).argmin()
-                    idz = (np.abs(self.x3 - event.ydata)).argmin()
+                if self.crossCheck.isChecked():
+                    sc.PlotWidget.linePlot(idx, idy, self.x1min,self.x1max,
+                                           self.x3min,self.x3max)
 
-                    if self.chCheck.isChecked():
-                        sc.PlotWidget.linePlot(idx, idy, self.x1min,self.x1max,
-                                               self.x3min,self.x3max)
+                self.x1Slider.setValue(idx)
+                self.x3Slider.setValue(idz)
 
-                    self.x1Slider.setValue(idx)
-                    self.x3Slider.setValue(idz)
+            elif self.planeCombo.currentText() == "yz":
+                idy = (np.abs(self.xc2 - event.xdata)).argmin()
+                idz = (np.abs(self.xc3 - event.ydata)).argmin()
 
-                elif self.planeCombo.currentText() == "yz":
-                    idy = (np.abs(self.x2 - event.xdata)).argmin()
-                    idz = (np.abs(self.x3 - event.ydata)).argmin()
+                if self.crossCheck.isChecked():
+                    sc.PlotWidget.linePlot(idx, idy, self.x2min,self.x2max,
+                                           self.x3min,self.x3max)
 
-                    if self.chCheck.isChecked():
-                        sc.PlotWidget.linePlot(idx, idy, self.x2min,self.x2max,
-                                               self.x3min,self.x3max)
-
-                    self.x2Slider.setValue(idy)
-                    self.x3Slider.setValue(idz)
-        except Exception:
-            pass
+                self.x2Slider.setValue(idy)
+                self.x3Slider.setValue(idz)
     
     def normChange(self):
-        self.normMeanLabel.setText("{dat:13.4g}".format(dat=np.mean(self.data)))
+        if self.planeCombo.currentText() == "xy":
+            self.normMeanLabel.setText("{dat:13.4g}".format(dat=self.data[self.x3ind].mean()))
+        elif self.planeCombo.currentText() == "xz":
+            self.normMeanLabel.setText("{dat:13.4g}".format(dat=self.data[:,self.x2ind].mean()))
+        elif self.planeCombo.currentText() == "yz":
+            self.normMeanLabel.setText("{dat:13.4g}".format(dat=self.data[:,:,self.x1ind].mean()))
         self.minNorm = float(self.normMinEdit.text())
         self.maxNorm = float(self.normMaxEdit.text())
 
@@ -1631,8 +1654,8 @@ class MainWindow(QtGui.QMainWindow):
 
         try:
             if sender.objectName() == "current-time-Edit":
-                if int(self.currentTimeEdit.text()) > len(self.time):
-                    self.currentTimeEdit.setText(str(len(self.time)-1))
+                if int(self.currentTimeEdit.text()) > self.timlen:
+                    self.currentTimeEdit.setText(str(self.timlen-1))
                 elif int(self.currentTimeEdit.text()) < 0:
                     self.currentTimeEdit.setText(str(0))
 
@@ -1641,8 +1664,8 @@ class MainWindow(QtGui.QMainWindow):
                 self.statusBar().showMessage("")
 
             elif sender.objectName() == "current-x-Edit":
-                if int(self.currentX1Edit.text()) > len(self.x1):
-                    self.currentX1Edit.setText(str(len(self.x1)-1))
+                if int(self.currentX1Edit.text()) > len(self.xc1):
+                    self.currentX1Edit.setText(str(len(self.xc1)-1))
                 elif int(self.currentX1Edit.text()) < 0:
                     self.currentX1Edit.setText(str(0))
 
@@ -1651,8 +1674,8 @@ class MainWindow(QtGui.QMainWindow):
                 self.statusBar().showMessage("")
 
             elif sender.objectName() == "current-y-Edit":
-                if int(self.currentX2Edit.text()) > len(self.x2):
-                    self.currentX2Edit.setText(str(len(self.x2)-1))
+                if int(self.currentX2Edit.text()) > len(self.xc2):
+                    self.currentX2Edit.setText(str(len(self.xc2)-1))
                 elif int(self.currentX2Edit.text()) < 0:
                     self.currentX2Edit.setText(str(0))
 
@@ -1661,8 +1684,8 @@ class MainWindow(QtGui.QMainWindow):
                 self.statusBar().showMessage("")
 
             elif sender.objectName() == "current-z-Edit":
-                if int(self.currentX3Edit.text()) > len(self.x3):
-                    self.currentX3Edit.setText(str(len(self.x3)-1))
+                if int(self.currentX3Edit.text()) > len(self.xc3):
+                    self.currentX3Edit.setText(str(len(self.xc3)-1))
                 elif int(self.currentX2Edit.text()) < 0:
                     self.currentX3Edit.setText(str(0))
 
@@ -1677,7 +1700,7 @@ class MainWindow(QtGui.QMainWindow):
         sender = self.sender()
 
         if sender.objectName() == "next-time-Button" and\
-            self.timind < (len(self.time) - 1):
+            self.timind < (self.timlen - 1):
             self.timind += 1
         elif sender.objectName() == "prev-time-Button" and self.timind > 0:
             self.timind -= 1
@@ -1820,9 +1843,9 @@ class MainWindow(QtGui.QMainWindow):
                 bb2 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb2"].data
                 bb3 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb3"].data
 
-                self.u = interpolate.interp1d(x1, bb1, copy=False)(self.x1)
-                self.v = interpolate.interp1d(x2, bb2, axis=1, copy=False)(self.x2)
-                self.w = interpolate.interp1d(x3, bb3, axis=0, copy=False)(self.x3)
+                self.u = ip.interp1d(x1, bb1, copy=False)(self.xc1)
+                self.v = ip.interp1d(x2, bb2, axis=1, copy=False)(self.xc2)
+                self.w = ip.interp1d(x3, bb3, axis=0, copy=False)(self.xc3)
 
             self.generalPlotRoutine()
         else:
@@ -1847,7 +1870,7 @@ class MainWindow(QtGui.QMainWindow):
                     vmin=self.minNorm, vmax=self.maxNorm,
                     cmap=self.cmCombo.currentText())
                     if self.vpCheck.isChecked():
-                        self.plotBox.vectorPlot(self.x1, self.x2,
+                        self.plotBox.vectorPlot(self.xc1, self.xc2,
                                                 self.u[self.x3ind,:,:],
                                                 self.v[self.x3ind,:,:],
                                                 xinc = int(self.vpXIncEdit.text()),
@@ -1861,7 +1884,7 @@ class MainWindow(QtGui.QMainWindow):
                     vmin=self.minNorm, vmax=self.maxNorm,
                     cmap=self.cmCombo.currentText())
                     if self.vpCheck.isChecked():
-                        self.plotBox.vectorPlot(self.x1, self.x3,
+                        self.plotBox.vectorPlot(self.xc1, self.xc3,
                                                 self.u[:,self.x2ind,:],
                                                 self.w[:,self.x2ind,:],
                                                 xinc = int(self.vpXIncEdit.text()),
@@ -1875,7 +1898,7 @@ class MainWindow(QtGui.QMainWindow):
                     vmin=self.minNorm, vmax=self.maxNorm,
                     cmap=self.cmCombo.currentText())
                     if self.vpCheck.isChecked():
-                        self.plotBox.vectorPlot(self.x2, self.x3,
+                        self.plotBox.vectorPlot(self.xc2, self.xc3,
                                                 self.v[:,:,self.x1ind],
                                                 self.w[:,:,self.x1ind],
                                                 xinc = int(self.vpXIncEdit.text()),
