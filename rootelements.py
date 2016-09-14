@@ -45,22 +45,6 @@ class MainWindow(QtGui.QMainWindow):
         n = max(1, n)
         return np.array([l[i:i + n] for i in range(0, len(l), n)])
 
-    def cumsimp(func,a,b,num):
-        #Integrate func from a to b using num intervals.
-
-        num*=2
-        a=float(a)
-        b=float(b)
-        h=(b-a)/num
-
-        output=4*func(a+h*np.arange(1,num,2))
-        tmp=func(a+h*np.arange(2,num-1,2))
-        output[1:]+=tmp
-        output[:-1]+=tmp 
-        output[0]+=func(a)
-        output[-1]+=func(b)
-        return np.cumsum(output*h/3)
-
     def initUI(self):
 
         self.centralWidget = QtGui.QWidget(self)
@@ -1225,8 +1209,8 @@ class MainWindow(QtGui.QMainWindow):
                         _,dbzdy,_ = np.gradient(bc3, self.dz, self.dy, self.dx)
                         dbydz,_,_ = np.gradient(bc2, self.dz, self.dy, self.dx)
                 else:
-                    dbzdy=sc.partialderiv(bc3, self.xc2, self.xb2, 1)
-                    dbydz=sc.partialderiv(bc2, self.xc3, self.xb3, 0)
+                    dbzdy=sc.Deriv(bc3, self.xc2, self.xb2, 1)
+                    dbydz=sc.Deriv(bc2, self.xc3, self.xb3, 0)
 
                 self.data = ne.evaluate("clight*(dbzdy-dbydz)/sqrt(const)")
                 self.unit = "G/s"
