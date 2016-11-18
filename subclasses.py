@@ -9,8 +9,8 @@ import numpy as np
 import numexpr as ne
 from scipy import interpolate
 
-#from PySide import QtCore, QtGui
-from PyQt4 import QtCore, QtGui
+#from PySide import QtCore, QtWidgets
+from PyQt5 import QtCore, QtWidgets, QtGui
 
 #import matplotlib as mpl
 #mpl.rcParams['backend.qt4']='PySide'
@@ -22,10 +22,8 @@ from PyQt4 import QtCore, QtGui
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import matplotlib.colors as cl
-from matplotlib.backends.backend_qt4agg \
-import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.backends.backend_qt4agg \
-import NavigationToolbar2QT as NavigationToolbar
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 
 #import pyqtgraph as pg
 
@@ -37,7 +35,7 @@ import h5py
 import rangeslider
 #import rebin
 
-class showImageSaveDialog(QtGui.QMainWindow):
+class showImageSaveDialog(QtWidgets.QMainWindow):
 
     def __init__(self, inputfile=None, data=None, currenttime=0, currentquant="",
                  time=None, currentx1=0, x1=None, currentx2=0, x2=None,
@@ -145,39 +143,39 @@ class showImageSaveDialog(QtGui.QMainWindow):
             self.setGeometry(100,600,800,300)
             self.setWindowTitle("Save Image")
 
-            centralWidget = QtGui.QWidget(self)
+            centralWidget = QtWidgets.QWidget(self)
 
-            mainGrid = QtGui.QGridLayout(centralWidget)
+            mainGrid = QtWidgets.QGridLayout(centralWidget)
 
             # -----------------------------------------------------------------
             # ---------- Groupbox with save configuration elements ------------
             # -----------------------------------------------------------------
 
-            saveConfGroup = QtGui.QGroupBox("Save-settings", centralWidget)
+            saveConfGroup = QtWidgets.QGroupBox("Save-settings", centralWidget)
 
             # --- Sub-layouts
 
-            saveConfLayout = QtGui.QVBoxLayout()
+            saveConfLayout = QtWidgets.QVBoxLayout()
 
             # --- Widgets
 
-            self.currentImageRadio = QtGui.QRadioButton("Save current image")
+            self.currentImageRadio = QtWidgets.QRadioButton("Save current image")
             self.currentImageRadio.setToolTip("Save current setup of mainwindow as image file.")
             self.currentImageRadio.setObjectName("currentImage")
             self.currentImageRadio.clicked.connect(self.toggleLayout)
             self.currentImageRadio.setChecked(True)
 
-            self.singleImageRadio = QtGui.QRadioButton("Save selected image")
+            self.singleImageRadio = QtWidgets.QRadioButton("Save selected image")
             self.singleImageRadio.setToolTip("Save a singe image selected by sliders in the plot configuration box.")
             self.singleImageRadio.setObjectName("singleImage")
             self.singleImageRadio.clicked.connect(self.toggleLayout)
 
-            self.rangeImageRadio = QtGui.QRadioButton("Save image sequence")
+            self.rangeImageRadio = QtWidgets.QRadioButton("Save image sequence")
             self.rangeImageRadio.setToolTip("Save a sequence of images selected by sliders in the plot configuration box.")
             self.rangeImageRadio.setObjectName("rangeImage")
             self.rangeImageRadio.clicked.connect(self.toggleLayout)
 
-            self.imageFormatCombo = QtGui.QComboBox(centralWidget)
+            self.imageFormatCombo = QtWidgets.QComboBox(centralWidget)
             self.imageFormatCombo.addItem("Encapsulated Postscript (.eps)")
             self.imageFormatCombo.addItem("Joint Photographics Experts Group (.jpg, .jpeg)")
             self.imageFormatCombo.addItem("LaTeX PGF Figure (.pgf)")
@@ -202,19 +200,19 @@ class showImageSaveDialog(QtGui.QMainWindow):
             # ---------- Groupbox with plot configuration elements ------------
             # -----------------------------------------------------------------
 
-            plotConfGroup = QtGui.QGroupBox("Plot-settings", centralWidget)
+            plotConfGroup = QtWidgets.QGroupBox("Plot-settings", centralWidget)
 
-            self.plotConfLayout = QtGui.QGridLayout(plotConfGroup)
+            self.plotConfLayout = QtWidgets.QGridLayout(plotConfGroup)
 
             # --- Sub-layouts
 
-            self.plotConfLayoutCurrent = QtGui.QGridLayout()
-            self.plotConfLayoutSingle = QtGui.QGridLayout()
-            self.plotConfLayoutRange = QtGui.QGridLayout()
+            self.plotConfLayoutCurrent = QtWidgets.QGridLayout()
+            self.plotConfLayoutSingle = QtWidgets.QGridLayout()
+            self.plotConfLayoutRange = QtWidgets.QGridLayout()
 
-            self.plotConfCurrentWid = QtGui.QWidget()
-            self.plotConfSingleWid = QtGui.QWidget()
-            self.plotConfRangeWid = QtGui.QWidget()
+            self.plotConfCurrentWid = QtWidgets.QWidget()
+            self.plotConfSingleWid = QtWidgets.QWidget()
+            self.plotConfRangeWid = QtWidgets.QWidget()
 
             self.plotConfCurrentWid.setLayout(self.plotConfLayoutCurrent)
             self.plotConfSingleWid.setLayout(self.plotConfLayoutSingle)
@@ -224,8 +222,8 @@ class showImageSaveDialog(QtGui.QMainWindow):
 
             # --- Time widgets
 
-            timeLabel = QtGui.QLabel("Timestep:")
-            self.timeSlider = QtGui.QSlider(QtCore.Qt.Horizontal,
+            timeLabel = QtWidgets.QLabel("Timestep:")
+            self.timeSlider = QtWidgets.QSlider(QtCore.Qt.Horizontal,
                                             self.plotConfSingleWid)
             self.timeSlider.setMinimum(0)
             self.timeSlider.setMaximum(len(self.time)-1)
@@ -233,21 +231,21 @@ class showImageSaveDialog(QtGui.QMainWindow):
             self.timeSlider.setObjectName("timeSlider")
             self.timeSlider.valueChanged.connect(self.sliderChange)
 
-            self.timeEdit = QtGui.QLineEdit(str(self.timeSlider.value()),
+            self.timeEdit = QtWidgets.QLineEdit(str(self.timeSlider.value()),
                                             self.plotConfSingleWid)
             self.timeEdit.setObjectName("timeEdit")
             self.timeEdit.textChanged.connect(self.editChange)
 
             if self.time is not None:
-                self.actualTimeLabel = QtGui.QLabel("{:10.2f}".format(self.time[self.
+                self.actualTimeLabel = QtWidgets.QLabel("{:10.2f}".format(self.time[self.
                                           timeSlider.value()]) + " s", self.plotConfSingleWid)
             else:
-                self.actualTimeLabel = QtGui.QLabel("0 s", self.plotConfSingleWid)
+                self.actualTimeLabel = QtWidgets.QLabel("0 s", self.plotConfSingleWid)
 
             # --- Spatial widgets
 
-            x1Label = QtGui.QLabel("x1:")
-            self.x1Slider = QtGui.QSlider(QtCore.Qt.Horizontal,
+            x1Label = QtWidgets.QLabel("x1:")
+            self.x1Slider = QtWidgets.QSlider(QtCore.Qt.Horizontal,
                                           self.plotConfSingleWid)
             self.x1Slider.setMinimum(0)
             self.x1Slider.setMaximum(len(self.x1)-1)
@@ -255,20 +253,20 @@ class showImageSaveDialog(QtGui.QMainWindow):
             self.x1Slider.setObjectName("x1Slider")
             self.x1Slider.valueChanged.connect(self.sliderChange)
 
-            self.x1Edit = QtGui.QLineEdit(str(self.x1Slider.value()),
+            self.x1Edit = QtWidgets.QLineEdit(str(self.x1Slider.value()),
                                           self.plotConfSingleWid)
             self.x1Edit.setObjectName("x1Edit")
             self.x1Edit.textChanged.connect(self.editChange)
 
             if self.x1 is not None:
-                self.actualx1Label = QtGui.QLabel("{:10.2f}".format(self.x1[self.
+                self.actualx1Label = QtWidgets.QLabel("{:10.2f}".format(self.x1[self.
                                           x1Slider.value()]) + " km", self.plotConfSingleWid)
             else:
-                self.actualx1Label = QtGui.QLabel("0 km", self.plotConfSingleWid)
+                self.actualx1Label = QtWidgets.QLabel("0 km", self.plotConfSingleWid)
 
-            x2Label = QtGui.QLabel("x2:")
+            x2Label = QtWidgets.QLabel("x2:")
 
-            self.x2Slider = QtGui.QSlider(QtCore.Qt.Horizontal,
+            self.x2Slider = QtWidgets.QSlider(QtCore.Qt.Horizontal,
                                           self.plotConfSingleWid)
             self.x2Slider.setMinimum(0)
             self.x2Slider.setMaximum(len(self.x2)-1)
@@ -276,20 +274,20 @@ class showImageSaveDialog(QtGui.QMainWindow):
             self.x2Slider.setObjectName("x2Slider")
             self.x2Slider.valueChanged.connect(self.sliderChange)
 
-            self.x2Edit = QtGui.QLineEdit(str(self.x2Slider.value()),
+            self.x2Edit = QtWidgets.QLineEdit(str(self.x2Slider.value()),
                                           self.plotConfSingleWid)
             self.x2Edit.setObjectName("x2Edit")
             self.x2Edit.textChanged.connect(self.editChange)
 
             if self.x2 is not None:
-                self.actualx2Label = QtGui.QLabel("{:10.2f}".format(self.x2[self.
+                self.actualx2Label = QtWidgets.QLabel("{:10.2f}".format(self.x2[self.
                                           x2Slider.value()]) + " km", self.plotConfSingleWid)
             else:
-                self.actualx2Label = QtGui.QLabel("0 km", self.plotConfSingleWid)
+                self.actualx2Label = QtWidgets.QLabel("0 km", self.plotConfSingleWid)
 
-            x3Label = QtGui.QLabel("x3:", centralWidget)
+            x3Label = QtWidgets.QLabel("x3:", centralWidget)
 
-            self.x3Slider = QtGui.QSlider(QtCore.Qt.Horizontal,
+            self.x3Slider = QtWidgets.QSlider(QtCore.Qt.Horizontal,
                                           self.plotConfSingleWid)
             self.x3Slider.setMinimum(0)
             self.x3Slider.setMaximum(len(self.x3)-1)
@@ -297,21 +295,21 @@ class showImageSaveDialog(QtGui.QMainWindow):
             self.x3Slider.setObjectName("x3Slider")
             self.x3Slider.valueChanged.connect(self.sliderChange)
 
-            self.x3Edit = QtGui.QLineEdit(str(self.x3Slider.value()),
+            self.x3Edit = QtWidgets.QLineEdit(str(self.x3Slider.value()),
                                           self.plotConfSingleWid)
             self.x3Edit.setObjectName("x3Edit")
             self.x3Edit.textChanged.connect(self.editChange)
 
             if self.x3 is not None:
-                self.actualx3Label = QtGui.QLabel("{:10.2f}".format(self.x3[self.
+                self.actualx3Label = QtWidgets.QLabel("{:10.2f}".format(self.x3[self.
                                                   x3Slider.value()]) + " km",
                                                   self.plotConfSingleWid)
             else:
-                self.actualx3Label = QtGui.QLabel("0 km", self.plotConfSingleWid)
+                self.actualx3Label = QtWidgets.QLabel("0 km", self.plotConfSingleWid)
 
             # --- Widgets for single data range ---
 
-            timeRangeLabel = QtGui.QLabel("Timestep:")
+            timeRangeLabel = QtWidgets.QLabel("Timestep:")
 
             self.timeRangeSlider = rangeslider.RangeSlider(QtCore.Qt.Horizontal,
                                                            self.plotConfRangeWid)
@@ -322,34 +320,34 @@ class showImageSaveDialog(QtGui.QMainWindow):
             self.timeRangeSlider.setObjectName("timeRangeSlider")
             self.timeRangeSlider.sliderMoved.connect(self.sliderChange)
 
-            self.timeEditLow = QtGui.QLineEdit(str(self.timeRangeSlider.low()),
+            self.timeEditLow = QtWidgets.QLineEdit(str(self.timeRangeSlider.low()),
                                                self.plotConfRangeWid)
             self.timeEditLow.setObjectName("timeEditLow")
             self.timeEditLow.setMaximumWidth(self.maxwidth)
             self.timeEditLow.textChanged.connect(self.editChange)
 
-            self.timeEditHigh = QtGui.QLineEdit(str(self.timeRangeSlider.high()),
+            self.timeEditHigh = QtWidgets.QLineEdit(str(self.timeRangeSlider.high()),
                                                 self.plotConfRangeWid)
             self.timeEditHigh.setObjectName("timeEditHigh")
             self.timeEditHigh.setMaximumWidth(self.maxwidth)
             self.timeEditHigh.textChanged.connect(self.editChange)
 
             if self.time is not None:
-                self.actualTimeLabelLow = QtGui.QLabel("{:10.2f}".format(self.
+                self.actualTimeLabelLow = QtWidgets.QLabel("{:10.2f}".format(self.
                                                        time[self.
                                                        timeRangeSlider.low()]) + " s",
                                                        self.plotConfRangeWid)
-                self.actualTimeLabelHigh = QtGui.QLabel("{:10.2f}".format(self.
+                self.actualTimeLabelHigh = QtWidgets.QLabel("{:10.2f}".format(self.
                                                         time[self.timeRangeSlider.
                                                         high()]) + " s",
                                                         self.plotConfRangeWid)
             else:
-                self.actualTimeLabelLow = QtGui.QLabel("0 s",
+                self.actualTimeLabelLow = QtWidgets.QLabel("0 s",
                                                        self.plotConfRangeWid)
-                self.actualTimeLabelHigh = QtGui.QLabel("0 s",
+                self.actualTimeLabelHigh = QtWidgets.QLabel("0 s",
                                                         self.plotConfRangeWid)
 
-            x1RangeLabel = QtGui.QLabel("x1:")
+            x1RangeLabel = QtWidgets.QLabel("x1:")
 
             self.x1RangeSlider = rangeslider.RangeSlider(QtCore.Qt.Horizontal,
                                                          self.plotConfRangeWid)
@@ -360,32 +358,32 @@ class showImageSaveDialog(QtGui.QMainWindow):
             self.x1RangeSlider.setObjectName("x1RangeSlider")
             self.x1RangeSlider.sliderMoved.connect(self.sliderChange)
 
-            self.x1EditLow = QtGui.QLineEdit(str(self.x1RangeSlider.low()),
+            self.x1EditLow = QtWidgets.QLineEdit(str(self.x1RangeSlider.low()),
                                              self.plotConfRangeWid)
             self.x1EditLow.setObjectName("x1EditLow")
             self.x1EditLow.setMaximumWidth(self.maxwidth)
             self.x1EditLow.textChanged.connect(self.editChange)
 
-            self.x1EditHigh = QtGui.QLineEdit(str(self.x1RangeSlider.high()),
+            self.x1EditHigh = QtWidgets.QLineEdit(str(self.x1RangeSlider.high()),
                                               self.plotConfRangeWid)
             self.x1EditHigh.setObjectName("x1EditHigh")
             self.x1EditHigh.setMaximumWidth(self.maxwidth)
             self.x1EditHigh.textChanged.connect(self.editChange)
 
             if self.x1 is not None:
-                self.actualx1LabelLow = QtGui.QLabel("{:10.2f}".format(self.x1[self.
+                self.actualx1LabelLow = QtWidgets.QLabel("{:10.2f}".format(self.x1[self.
                                           x1RangeSlider.low()]) + " km",
                                           self.plotConfRangeWid)
-                self.actualx1LabelHigh = QtGui.QLabel("{:10.2f}".format(self.x1[self.
+                self.actualx1LabelHigh = QtWidgets.QLabel("{:10.2f}".format(self.x1[self.
                                           x1RangeSlider.high()]) + " km",
                                            self.plotConfRangeWid)
             else:
-                self.actualx1LabelLow = QtGui.QLabel("0 km",
+                self.actualx1LabelLow = QtWidgets.QLabel("0 km",
                                                        self.plotConfRangeWid)
-                self.actualx1LabelHigh = QtGui.QLabel("0 km",
+                self.actualx1LabelHigh = QtWidgets.QLabel("0 km",
                                                         self.plotConfRangeWid)
 
-            x2RangeLabel = QtGui.QLabel("x2:")
+            x2RangeLabel = QtWidgets.QLabel("x2:")
 
             self.x2RangeSlider = rangeslider.RangeSlider(QtCore.Qt.Horizontal,
                                                          self.plotConfRangeWid)
@@ -395,32 +393,32 @@ class showImageSaveDialog(QtGui.QMainWindow):
             self.x2RangeSlider.setObjectName("x2RangeSlider")
             self.x2RangeSlider.sliderMoved.connect(self.sliderChange)
 
-            self.x2EditLow = QtGui.QLineEdit(str(self.x2RangeSlider.low()),
+            self.x2EditLow = QtWidgets.QLineEdit(str(self.x2RangeSlider.low()),
                                              self.plotConfRangeWid)
             self.x2EditLow.setObjectName("x2EditLow")
             self.x2EditLow.setMaximumWidth(self.maxwidth)
             self.x2EditLow.textChanged.connect(self.editChange)
 
-            self.x2EditHigh = QtGui.QLineEdit(str(self.x2RangeSlider.high()),
+            self.x2EditHigh = QtWidgets.QLineEdit(str(self.x2RangeSlider.high()),
                                               self.plotConfRangeWid)
             self.x2EditHigh.setObjectName("x2EditHigh")
             self.x2EditHigh.setMaximumWidth(self.maxwidth)
             self.x2EditHigh.textChanged.connect(self.editChange)
 
             if self.x2 is not None:
-                self.actualx2LabelLow = QtGui.QLabel("{:10.2f}".format(self.x2[self.
+                self.actualx2LabelLow = QtWidgets.QLabel("{:10.2f}".format(self.x2[self.
                                           x2RangeSlider.low()]) + " km",
                                           self.plotConfRangeWid)
-                self.actualx2LabelHigh = QtGui.QLabel("{:10.2f}".format(self.x2[self.
+                self.actualx2LabelHigh = QtWidgets.QLabel("{:10.2f}".format(self.x2[self.
                                           x2RangeSlider.high()]) + " km",
                                           self.plotConfRangeWid)
             else:
-                self.actualx2LabelLow = QtGui.QLabel("0 km",
+                self.actualx2LabelLow = QtWidgets.QLabel("0 km",
                                                      self.plotConfRangeWid)
-                self.actualx2LabelHigh = QtGui.QLabel("0 km",
+                self.actualx2LabelHigh = QtWidgets.QLabel("0 km",
                                                       self.plotConfRangeWid)
 
-            x3RangeLabel = QtGui.QLabel("x3:")
+            x3RangeLabel = QtWidgets.QLabel("x3:")
 
             self.x3RangeSlider = rangeslider.RangeSlider(QtCore.Qt.Horizontal,
                                                          self.plotConfRangeWid)
@@ -430,38 +428,38 @@ class showImageSaveDialog(QtGui.QMainWindow):
             self.x3RangeSlider.setObjectName("x3RangeSlider")
             self.x3RangeSlider.sliderMoved.connect(self.sliderChange)
 
-            self.x3EditLow = QtGui.QLineEdit(str(self.x3RangeSlider.low()),
+            self.x3EditLow = QtWidgets.QLineEdit(str(self.x3RangeSlider.low()),
                                              self.plotConfRangeWid)
             self.x3EditLow.setObjectName("x3EditLow")
             self.x3EditLow.setMaximumWidth(self.maxwidth)
             self.x3EditLow.textChanged.connect(self.editChange)
 
-            self.x3EditHigh = QtGui.QLineEdit(str(self.x3RangeSlider.high()),
+            self.x3EditHigh = QtWidgets.QLineEdit(str(self.x3RangeSlider.high()),
                                               self.plotConfRangeWid)
             self.x3EditHigh.setObjectName("x3EditHigh")
             self.x3EditHigh.setMaximumWidth(self.maxwidth)
             self.x3EditHigh.textChanged.connect(self.editChange)
 
             if self.x3 is not None:
-                self.actualx3LabelLow = QtGui.QLabel("{:10.2f}".format(self.x3[self.
+                self.actualx3LabelLow = QtWidgets.QLabel("{:10.2f}".format(self.x3[self.
                                           x3RangeSlider.low()]) + " km",
                                           self.plotConfRangeWid)
-                self.actualx3LabelHigh = QtGui.QLabel("{:10.2f}".format(self.x3[self.
+                self.actualx3LabelHigh = QtWidgets.QLabel("{:10.2f}".format(self.x3[self.
                                           x3RangeSlider.high()]) + " km",
                                           self.plotConfRangeWid)
             else:
-                self.actualx3LabelLow = QtGui.QLabel("0 km",
+                self.actualx3LabelLow = QtWidgets.QLabel("0 km",
                                                      self.plotConfRangeWid)
-                self.actualx3LabelHigh = QtGui.QLabel("0 km",
+                self.actualx3LabelHigh = QtWidgets.QLabel("0 km",
                                                       self.plotConfRangeWid)
 
             # --- save or cancel widgets ---
 
-            saveCancelWid = QtGui.QWidget(centralWidget)
-            saveCancelLayout = QtGui.QHBoxLayout()
-            saveButton = QtGui.QPushButton("Save")
+            saveCancelWid = QtWidgets.QWidget(centralWidget)
+            saveCancelLayout = QtWidgets.QHBoxLayout()
+            saveButton = QtWidgets.QPushButton("Save")
 
-            cancelButton = QtGui.QPushButton("Cancel")
+            cancelButton = QtWidgets.QPushButton("Cancel")
             cancelButton.clicked.connect(self.close)
 
             saveCancelLayout.addStretch(1)
@@ -502,18 +500,18 @@ class showImageSaveDialog(QtGui.QMainWindow):
 
             # --- Data setting group
 
-            self.dataSettingGroup = QtGui.QGroupBox("Data selection and costumization")
-            dataSettingLayout = QtGui.QGridLayout()
+            self.dataSettingGroup = QtWidgets.QGroupBox("Data selection and costumization")
+            dataSettingLayout = QtWidgets.QGridLayout()
             self.dataSettingGroup.setLayout(dataSettingLayout)
 
-            dataTypeLabel = QtGui.QLabel("Data type: ")
-            self.dataTypeCombo = QtGui.QComboBox(self.dataSettingGroup)
+            dataTypeLabel = QtWidgets.QLabel("Data type: ")
+            self.dataTypeCombo = QtWidgets.QComboBox(self.dataSettingGroup)
             for i in range(len(self.dataTypeList)):
                     self.dataTypeCombo.addItems(sorted(self.dataTypeList[i].keys()))
             self.dataTypeCombo.setCurrentIndex(self.currenttype)
 
-            cmLabel = QtGui.QLabel("Colormap: ")
-            self.cmCombo = QtGui.QComboBox(self.dataSettingGroup)
+            cmLabel = QtWidgets.QLabel("Colormap: ")
+            self.cmCombo = QtWidgets.QComboBox(self.dataSettingGroup)
             self.cmCombo.clear()
             self.cmCombo.addItems(self.cmaps)
             self.cmCombo.setCurrentIndex(self.currentcm)
@@ -942,7 +940,7 @@ class showImageSaveDialog(QtGui.QMainWindow):
 class PlotWidget(FigureCanvas):
     def __init__(self, parent=None):
 
-        self.msgBox = QtGui.QMessageBox()
+        self.msgBox = QtWidgets.QMessageBox()
 
         self.fig = plt.Figure(figsize=(8,6), dpi=100)
 
