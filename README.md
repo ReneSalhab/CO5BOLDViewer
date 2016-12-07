@@ -26,7 +26,8 @@
 
     # Installation
     
-      No compilation needed. Go to the directory you installed CO5BOLDViewer and start with
+      No compilation needed.
+      Go to the directory you installed CO5BOLDViewer and start with
       
         python CO5BOLDViewer.py
       
@@ -34,5 +35,14 @@
       
         ipython CO5BOLDViewer.py
 
-      That´s it.
+      If all necessary modules are present it should work. If modules are missing you´ll have to install them.
+      With anaconda type into the console:
+      
+      conda install pyqt5
+      
+      If python was not installed with anaconda
+      
+      pip install pyqt5
+      
+      should work.
     
