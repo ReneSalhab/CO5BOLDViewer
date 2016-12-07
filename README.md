@@ -36,13 +36,13 @@
         ipython CO5BOLDViewer.py
 
       If all necessary modules are present it should work. If modules are missing you´ll have to install them.
-      With anaconda type into the console:
+      With anaconda type into the terminal/console:
       
-      conda install pyqt5
+        bash$ conda install pyqt5
       
       If python was not installed with anaconda
       
-      pip install pyqt5
+        bash$ pip install pyqt5
       
       should work.
     
