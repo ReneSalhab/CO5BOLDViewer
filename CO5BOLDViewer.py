@@ -7,15 +7,14 @@ Created on Tue Nov 05 08:49:34 2013
 
 import sys
 
-#from PySide import QtGui
-from PyQt4 import QtGui
+from PyQt5 import QtWidgets
 
 import rootelements as cre
 
 def main():
-    app = QtGui.QApplication.instance()
+    app = QtWidgets.QApplication.instance()
     if app is None:
-        app = QtGui.QApplication(sys.argv)
+        app = QtWidgets.QApplication(sys.argv)
     MainWindow = cre.MainWindow()
     
     sys.exit(app.exec_())

@@ -16,7 +16,7 @@
       - h5py
       - numpy
       - scipy
-      - PyQt4
+      - PyQt5
       - struct
       - bisect
       - numexpr

@@ -16,14 +16,11 @@ import numexpr as ne
 from scipy import interpolate as ip
 from scipy import integrate as integ
 
-#import matplotlib as mpl
-#mpl.rcParams['backend.qt4']='PySide'
-
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import matplotlib.colors as cl
 import matplotlib.colorbar as clbar
-from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
 import uio
 import uio_eos
@@ -31,10 +28,10 @@ import eosinter
 import subclasses as sc
 import read_opta as ropa
 
-#from PySide import QtCore, QtGui
-from PyQt4 import QtCore, QtGui
+#from PySide import QtCore, QtWidgets
+from PyQt5 import QtCore, QtGui, QtWidgets
 
-class MainWindow(QtGui.QMainWindow):
+class MainWindow(QtWidgets.QMainWindow):
 
     def __init__(self):
         super(MainWindow, self).__init__()
@@ -47,12 +44,12 @@ class MainWindow(QtGui.QMainWindow):
 
     def initUI(self):
 
-        self.centralWidget = QtGui.QWidget(self)
+        self.centralWidget = QtWidgets.QWidget(self)
 
         self.setWindowTitle('CO5BOLDViewer')
         self.setGeometry(100, 100, 1000, 700)
 
-        QtGui.QToolTip.setFont(QtGui.QFont('SansSerif', 10))
+        QtWidgets.QToolTip.setFont(QtGui.QFont('SansSerif', 10))
 
         self.initializeParams()
         self.setMenu()
@@ -98,7 +95,7 @@ class MainWindow(QtGui.QMainWindow):
 
         # --- Message Box ---
 
-        self.msgBox = QtGui.QMessageBox()
+        self.msgBox = QtWidgets.QMessageBox()
 
         # --- eos-file ---
 
@@ -114,7 +111,7 @@ class MainWindow(QtGui.QMainWindow):
 
         # --- "Load EOS-File" button config
 
-        openEosAction = QtGui.QAction(QtGui.QIcon("open.png"), "Load &EOS File",
+        openEosAction = QtWidgets.QAction(QtGui.QIcon("open.png"), "Load &EOS File",
                                    self)
         openEosAction.setShortcut("Ctrl+E")
         openEosAction.setStatusTip("Open an equation of state file (.eos)")
@@ -123,7 +120,7 @@ class MainWindow(QtGui.QMainWindow):
 
         # --- "Load opacity file" button config
 
-        openOpaAction = QtGui.QAction(QtGui.QIcon("open.png"), "Load &opacity File",
+        openOpaAction = QtWidgets.QAction(QtGui.QIcon("open.png"), "Load &opacity File",
                                    self)
         openOpaAction.setShortcut("Ctrl+O")
         openOpaAction.setStatusTip("Open an opacity file (.opta)")
@@ -132,7 +129,7 @@ class MainWindow(QtGui.QMainWindow):
 
         # --- "Load Model" button config
 
-        openModelAction = QtGui.QAction(QtGui.QIcon("open.png"), "Load &Model File",
+        openModelAction = QtWidgets.QAction(QtGui.QIcon("open.png"), "Load &Model File",
                                    self)
         openModelAction.setShortcut("Ctrl+M")
         openModelAction.setStatusTip("Open a Model File (.mean, .full, .sta and .end).")
@@ -141,7 +138,7 @@ class MainWindow(QtGui.QMainWindow):
 
         # --- "Exit" button config
 
-        exitAction = QtGui.QAction(QtGui.QIcon("exit.png"), "&Exit", self)
+        exitAction = QtWidgets.QAction(QtGui.QIcon("exit.png"), "&Exit", self)
         exitAction.setShortcut("Ctrl+Q")
         exitAction.setStatusTip("Exit application.")
         exitAction.setToolTip("Exit application.")
@@ -151,13 +148,13 @@ class MainWindow(QtGui.QMainWindow):
         # --- "Output" drop-down menu elements ---
         # --------------------------------------------------------------------
 
-        saveImageAction = QtGui.QAction("Save &Image", self)
+        saveImageAction = QtWidgets.QAction("Save &Image", self)
         saveImageAction.setShortcut("Ctrl+I")
         saveImageAction.setStatusTip("Save current plot, or sequences to image files.")
         saveImageAction.setToolTip("Save current plot, or sequences to image files")
         saveImageAction.triggered.connect(self.showImageSaveDialog)
 
-        saveSliceHD5Action = QtGui.QAction("Save Slice", self)
+        saveSliceHD5Action = QtWidgets.QAction("Save Slice", self)
         saveSliceHD5Action.setShortcut("Ctrl+H")
         saveSliceHD5Action.setStatusTip("Save current slice as HDF5 or FITS file.")
         saveSliceHD5Action.setToolTip("Save current slice as HDF5 or FITS file.")
@@ -165,11 +162,11 @@ class MainWindow(QtGui.QMainWindow):
 
         # --- Initialize menubar ---
 
-        menubar = QtGui.QMenuBar(self)
+        menubar = QtWidgets.QMenuBar(self)
         
         # --- "File" drop-down menu elements ---
 
-        fileMenu = QtGui.QMenu("&File", self)
+        fileMenu = QtWidgets.QMenu("&File", self)
         fileMenu.addAction(openEosAction)
         fileMenu.addAction(openOpaAction)
         fileMenu.addAction(openModelAction)
@@ -177,7 +174,7 @@ class MainWindow(QtGui.QMainWindow):
 
         # --- "Output" drop-down menu elements ---
 
-        self.outputMenu = QtGui.QMenu("&Output", self)
+        self.outputMenu = QtWidgets.QMenu("&Output", self)
         self.outputMenu.addAction(saveImageAction)
         self.outputMenu.addAction(saveSliceHD5Action)
         self.outputMenu.setDisabled(True)
@@ -204,17 +201,16 @@ class MainWindow(QtGui.QMainWindow):
         if not os.path.exists(self.stdDir):
             os.mkdir(self.stdDir)
 
-        self.fname, fil = QtGui.QFileDialog.getOpenFileNamesAndFilter(self,"Open Model File",
-                            self.stdDir,"Model files (*.full *.end *.sta);;Mean files(*.mean)")
+        self.fname, fil = QtWidgets.QFileDialog.getOpenFileNames(self, "Open Model File", self.stdDir,
+                                                                 "Model files (*.full *.end *.sta);;Mean files(*.mean)")
 
         if len(self.fname) > 0:
             self.statusBar().showMessage("Read Modelfile...")
-            QtGui.QApplication.setOverrideCursor(QtGui.QCursor(QtCore.Qt.WaitCursor))
+            QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
 
             self.modelfile = []
 
-            pd = QtGui.QProgressDialog("Load Model-files...","Cancel",0,
-                                       len(self.fname),self)
+            pd = QtWidgets.QProgressDialog("Load Model-files...", "Cancel", 0, len(self.fname), self)
 
             for i in range(len(self.fname)):
                 self.modelfile.append(uio.File(self.fname[i]))
@@ -288,22 +284,18 @@ class MainWindow(QtGui.QMainWindow):
 
                 self.initialLoad()
 
-            QtGui.QApplication.restoreOverrideCursor()
+            QtWidgets.QApplication.restoreOverrideCursor()
             self.statusBar().showMessage("Loaded {f} files".format(f=str(len(self.fname))))
     
     def showSaveSliceDialog(self):
         if not self.stdDir:
-            self.stdDir = os.path.join(os.path.curdir, "Data")
+            self.stdDir = os.path.curdir
 
-        if not os.path.exists(self.stdDir):
-            os.mkdir(self.stdDir)
-
-        fname, fil = QtGui.QFileDialog.getSaveFileName(self,"Save current slice (HD5)",
-                                                     self.stdDir,
-                                                     "HDF5 file (*.h5);;FITS file (*.fits)")
+        fname, fil = QtWidgets.QFileDialog.getSaveFileName(self, "Save current slice (HD5)", self.stdDir,
+                                                           "HDF5 file (*.h5);;FITS file (*.fits)")
 
         if fname:
-            QtGui.QApplication.setOverrideCursor(QtGui.QCursor(QtCore.Qt.WaitCursor))
+            QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
 
             if fil == "HDF5 file (*.h5)":
                 self.statusBar().showMessage("Save HDF5-file...")
@@ -315,7 +307,7 @@ class MainWindow(QtGui.QMainWindow):
                 sc.saveFits(fname, self.modelfile[self.modelind], self.dataTypeCombo.currentText(),
                             self.data, self.time[self.timind,0], (self.x1ind,
                             self.x2ind,self.x3ind), self.planeCombo.currentText())
-            QtGui.QApplication.restoreOverrideCursor()
+            QtWidgets.QApplication.restoreOverrideCursor()
 
             self.statusBar().showMessage("File {f} saved".format(f=fname))
 
@@ -325,12 +317,11 @@ class MainWindow(QtGui.QMainWindow):
         if not os.path.exists(stdDir):
             os.mkdir(stdDir)
 
-        self.eosname = QtGui.QFileDialog.getOpenFileName(self,"Open EOS File",
-                                                         stdDir,"EOS files (*.eos)")
+        self.eosname = QtWidgets.QFileDialog.getOpenFileName(self, "Open EOS File", stdDir, "EOS files (*.eos)")
 
         if self.eosname:
             self.statusBar().showMessage("Read EOS file...")
-            QtGui.QApplication.setOverrideCursor(QtGui.QCursor(QtCore.Qt.WaitCursor))
+            QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
 
             self.eosfile = uio_eos.File(self.eosname)
 
@@ -366,7 +357,7 @@ class MainWindow(QtGui.QMainWindow):
 
             self.eos = True
 
-            QtGui.QApplication.restoreOverrideCursor()
+            QtWidgets.QApplication.restoreOverrideCursor()
             self.statusBar().showMessage("Done")
 
     def showLoadOpaDialog(self):
@@ -376,12 +367,11 @@ class MainWindow(QtGui.QMainWindow):
         if not os.path.exists(stdDir):
             os.mkdir(stdDir)
 
-        self.opaname = QtGui.QFileDialog.getOpenFileName(self,"Open opacity File",
-                                                         stdDir,"opacity files (*.opta)")
+        self.opaname = QtWidgets.QFileDialog.getOpenFileName(self, "Open opacity File", stdDir,"opacity files (*.opta)")
 
         if self.opaname:
             self.statusBar().showMessage("Read opacity file...")
-            QtGui.QApplication.setOverrideCursor(QtGui.QCursor(QtCore.Qt.WaitCursor))
+            QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
 
             self.opatemp, self.opapress, self.opacity = ropa.read_opta(self.opaname)
             self.opatemp = 10.0**self.opatemp
@@ -397,95 +387,95 @@ class MainWindow(QtGui.QMainWindow):
 
             self.opa = False
 
-            QtGui.QApplication.restoreOverrideCursor()
+            QtWidgets.QApplication.restoreOverrideCursor()
             self.statusBar().showMessage("Done")
 
     def setGridLayout(self):
         # --- Main Layout with splitter ---
         # --- (enables automatic resizing of widgets when window is resized)
 
-        maingrid = QtGui.QHBoxLayout(self.centralWidget)
+        maingrid = QtWidgets.QHBoxLayout(self.centralWidget)
 
         # --- Splitter for dynamic seperation of control elements section and
         # --- plot-box
 
-        splitter = QtGui.QSplitter(QtCore.Qt.Horizontal)
+        splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
         maingrid.addWidget(splitter)
 
         # --- Layout with control elements ---self.timind
 
-        leftgrid = QtGui.QVBoxLayout()
+        leftgrid = QtWidgets.QVBoxLayout()
 
         # --- Widget consisting of layout for control elements ---
         # --- (enables adding of control-elements-layout to splitter)
 
-        leftgridwid = QtGui.QWidget(self.centralWidget)
+        leftgridwid = QtWidgets.QWidget(self.centralWidget)
         leftgridwid.setLayout(leftgrid)
 
         # ---------------------------------------------------------------------
         # ----------------- Groupbox with time components ---------------------
         # ---------------------------------------------------------------------
 
-        timeGroup = QtGui.QGroupBox("Time parameters", self.centralWidget)
-        timeLayout = QtGui.QGridLayout(timeGroup)
+        timeGroup = QtWidgets.QGroupBox("Time parameters", self.centralWidget)
+        timeLayout = QtWidgets.QGridLayout(timeGroup)
         timeGroup.setLayout(timeLayout)
 
         # --- Sliders and buttons for time selection ---
 
-        self.timeSlider = QtGui.QSlider(QtCore.Qt.Horizontal, self.centralWidget)
+        self.timeSlider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self.centralWidget)
         self.timeSlider.setMinimum(0)
         self.timeSlider.setMaximum(100)
         self.timeSlider.setDisabled(True)
         self.timeSlider.valueChanged.connect(self.SliderChange)
         self.timeSlider.setObjectName("time-Slider")
 
-        self.prevTimeBtn = QtGui.QPushButton("Prev")
+        self.prevTimeBtn = QtWidgets.QPushButton("Prev")
         self.prevTimeBtn.setDisabled(True)
         self.prevTimeBtn.clicked.connect(self.timeBtnClick)
         self.prevTimeBtn.setObjectName("prev-time-Button")
 
-        self.nextTimeBtn = QtGui.QPushButton("Next")
+        self.nextTimeBtn = QtWidgets.QPushButton("Next")
         self.nextTimeBtn.setDisabled(True)
         self.nextTimeBtn.clicked.connect(self.timeBtnClick)
         self.nextTimeBtn.setObjectName("next-time-Button")
         
         # --- Label for time-slider
         
-        timeTitle = QtGui.QLabel("Time step:")
+        timeTitle = QtWidgets.QLabel("Time step:")
 
-        self.currentTimeEdit = QtGui.QLineEdit(str(self.timeSlider.value()))
+        self.currentTimeEdit = QtWidgets.QLineEdit(str(self.timeSlider.value()))
         self.currentTimeEdit.setMaximumWidth(40)
         self.currentTimeEdit.setMinimumWidth(40)
         self.currentTimeEdit.textChanged.connect(self.currentEditChange)
         self.currentTimeEdit.setObjectName("current-time-Edit")
 
-        currentTimeTitle = QtGui.QLabel("t/[s]:")
+        currentTimeTitle = QtWidgets.QLabel("t/[s]:")
 
-        self.actualTimeLabel = QtGui.QLabel(str(self.timeSlider.value()))
+        self.actualTimeLabel = QtWidgets.QLabel(str(self.timeSlider.value()))
         self.actualTimeLabel.setMaximumWidth(55)
         self.actualTimeLabel.setMinimumWidth(55)
         self.actualTimeLabel.setObjectName("actual-time-Label")
 
-        timeLayout.addWidget(timeTitle,0,0)
-        timeLayout.addWidget(self.timeSlider,0,1,1,2)
-        timeLayout.addWidget(self.currentTimeEdit,0,3)
-        timeLayout.addWidget(currentTimeTitle,0,4)
-        timeLayout.addWidget(self.actualTimeLabel,0,5)
+        timeLayout.addWidget(timeTitle, 0, 0)
+        timeLayout.addWidget(self.timeSlider, 0, 1, 1, 2)
+        timeLayout.addWidget(self.currentTimeEdit, 0, 3)
+        timeLayout.addWidget(currentTimeTitle, 0, 4)
+        timeLayout.addWidget(self.actualTimeLabel, 0, 5)
 
-        timeLayout.addWidget(self.prevTimeBtn,1,1)
-        timeLayout.addWidget(self.nextTimeBtn,1,2)
+        timeLayout.addWidget(self.prevTimeBtn, 1, 1)
+        timeLayout.addWidget(self.nextTimeBtn, 1, 2)
 
         # ---------------------------------------------------------------------
         # ---------------- Groupbox with position components ------------------
         # ---------------------------------------------------------------------
 
-        posGroup = QtGui.QGroupBox("Position", self.centralWidget)
-        posLayout = QtGui.QGridLayout(posGroup)
+        posGroup = QtWidgets.QGroupBox("Position", self.centralWidget)
+        posLayout = QtWidgets.QGridLayout(posGroup)
         posGroup.setLayout(posLayout)
 
         # --- ComboBox for projection plane selection ---
 
-        self.planeCombo = QtGui.QComboBox(self.centralWidget)
+        self.planeCombo = QtWidgets.QComboBox(self.centralWidget)
         self.planeCombo.clear()
         self.planeCombo.setDisabled(True)
         self.planeCombo.activated[str].connect(self.planeCheck)
@@ -496,27 +486,27 @@ class MainWindow(QtGui.QMainWindow):
 
         # --- Cross-hair activation components ---
 
-        crossLabel = QtGui.QLabel("cross-hair:")        
-        self.crossCheck = QtGui.QCheckBox(self.centralWidget)
+        crossLabel = QtWidgets.QLabel("cross-hair:")
+        self.crossCheck = QtWidgets.QCheckBox(self.centralWidget)
         self.crossCheck.setDisabled(True)
 
         # --- Sliders for spatial directions ---
 
-        self.x1Slider = QtGui.QSlider(QtCore.Qt.Horizontal, self.centralWidget)
+        self.x1Slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self.centralWidget)
         self.x1Slider.setMinimum(0)
         self.x1Slider.setMaximum(100)
         self.x1Slider.setDisabled(True)
         self.x1Slider.valueChanged.connect(self.SliderChange)
         self.x1Slider.setObjectName("x1-Slider")
 
-        self.x2Slider = QtGui.QSlider(QtCore.Qt.Horizontal, self.centralWidget)
+        self.x2Slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self.centralWidget)
         self.x2Slider.setMinimum(0)
         self.x2Slider.setMaximum(100)
         self.x2Slider.setDisabled(True)
         self.x2Slider.valueChanged.connect(self.SliderChange)
         self.x2Slider.setObjectName("x2-Slider")
 
-        self.x3Slider = QtGui.QSlider(QtCore.Qt.Horizontal, self.centralWidget)
+        self.x3Slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self.centralWidget)
         self.x3Slider.setMinimum(0)
         self.x3Slider.setMaximum(100)
         self.x3Slider.setDisabled(True)
@@ -525,103 +515,103 @@ class MainWindow(QtGui.QMainWindow):
 
         # --- Label for Combobox for projection plane selection ---
 
-        planeLabel = QtGui.QLabel("Projection plane:")
+        planeLabel = QtWidgets.QLabel("Projection plane:")
 
         # --- Labels for sliders of spatial directions ---
 
-        x1SliderTitle = QtGui.QLabel("x-position:")
-        currentX1Title = QtGui.QLabel("ix:")
-        actualX1Title = QtGui.QLabel("x/[km]:")
+        x1SliderTitle = QtWidgets.QLabel("x-position:")
+        currentX1Title = QtWidgets.QLabel("ix:")
+        actualX1Title = QtWidgets.QLabel("x/[km]:")
 
-        self.currentX1Edit = QtGui.QLineEdit(str(self.x1Slider.value()))
+        self.currentX1Edit = QtWidgets.QLineEdit(str(self.x1Slider.value()))
         self.currentX1Edit.setMaximumWidth(40)
         self.currentX1Edit.setMinimumWidth(40)
         self.currentX1Edit.textChanged.connect(self.currentEditChange)
         self.currentX1Edit.setObjectName("current-x-Edit")
 
-        self.actualX1Label = QtGui.QLabel(str(0))
+        self.actualX1Label = QtWidgets.QLabel(str(0))
         self.actualX1Label.setMaximumWidth(55)
         self.actualX1Label.setMinimumWidth(55)
 
-        x2SliderTitle = QtGui.QLabel("y-position:")
-        currentX2Title = QtGui.QLabel("iy:")
-        actualX2Title = QtGui.QLabel("y/[km]:")
+        x2SliderTitle = QtWidgets.QLabel("y-position:")
+        currentX2Title = QtWidgets.QLabel("iy:")
+        actualX2Title = QtWidgets.QLabel("y/[km]:")
 
-        self.currentX2Edit = QtGui.QLineEdit(str(self.x2Slider.value()))
+        self.currentX2Edit = QtWidgets.QLineEdit(str(self.x2Slider.value()))
         self.currentX2Edit.setMaximumWidth(40)
         self.currentX2Edit.setMinimumWidth(40)
         self.currentX2Edit.textChanged.connect(self.currentEditChange)
         self.currentX2Edit.setObjectName("current-y-Edit")
 
-        self.actualX2Label = QtGui.QLabel(str(0))
+        self.actualX2Label = QtWidgets.QLabel(str(0))
         self.actualX2Label.setMaximumWidth(55)
         self.actualX2Label.setMinimumWidth(55)
 
-        x3SliderTitle = QtGui.QLabel("z-position:")
-        currentX3Title = QtGui.QLabel("iz:")
-        actualX3Title = QtGui.QLabel("z/[km]:")
+        x3SliderTitle = QtWidgets.QLabel("z-position:")
+        currentX3Title = QtWidgets.QLabel("iz:")
+        actualX3Title = QtWidgets.QLabel("z/[km]:")
 
-        self.currentX3Edit = QtGui.QLineEdit(str(self.x3Slider.value()))
+        self.currentX3Edit = QtWidgets.QLineEdit(str(self.x3Slider.value()))
         self.currentX3Edit.setMaximumWidth(40)
         self.currentX3Edit.setMinimumWidth(40)
         self.currentX3Edit.textChanged.connect(self.currentEditChange)
         self.currentX3Edit.setObjectName("current-z-Edit")
 
-        self.actualX3Label = QtGui.QLabel(str(0))
+        self.actualX3Label = QtWidgets.QLabel(str(0))
         self.actualX3Label.setMaximumWidth(55)
         self.actualX3Label.setMinimumWidth(55)
 
         # --- Position box configuration ---
 
-        posLayout.addWidget(planeLabel,0,0)
-        posLayout.addWidget(self.planeCombo,0,1)
+        posLayout.addWidget(planeLabel, 0, 0)
+        posLayout.addWidget(self.planeCombo, 0, 1)
 
-        posLayout.addWidget(crossLabel,0,2,1,2)
-        posLayout.addWidget(self.crossCheck,0,4)
+        posLayout.addWidget(crossLabel, 0, 2, 1, 2)
+        posLayout.addWidget(self.crossCheck, 0, 4)
 
-        posLayout.addWidget(x1SliderTitle,1,0)
-        posLayout.addWidget(self.x1Slider,1,1)
-        posLayout.addWidget(currentX1Title,1,2)
-        posLayout.addWidget(self.currentX1Edit,1,3)
-        posLayout.addWidget(actualX1Title,1,4)
-        posLayout.addWidget(self.actualX1Label,1,5)
+        posLayout.addWidget(x1SliderTitle, 1, 0)
+        posLayout.addWidget(self.x1Slider, 1, 1)
+        posLayout.addWidget(currentX1Title, 1, 2)
+        posLayout.addWidget(self.currentX1Edit, 1, 3)
+        posLayout.addWidget(actualX1Title, 1, 4)
+        posLayout.addWidget(self.actualX1Label, 1, 5)
 
-        posLayout.addWidget(x2SliderTitle,2,0)
-        posLayout.addWidget(self.x2Slider,2,1)
-        posLayout.addWidget(currentX2Title,2,2)
-        posLayout.addWidget(self.currentX2Edit,2,3)
-        posLayout.addWidget(actualX2Title,2,4)
-        posLayout.addWidget(self.actualX2Label,2,5)
+        posLayout.addWidget(x2SliderTitle, 2, 0)
+        posLayout.addWidget(self.x2Slider, 2, 1)
+        posLayout.addWidget(currentX2Title, 2, 2)
+        posLayout.addWidget(self.currentX2Edit, 2, 3)
+        posLayout.addWidget(actualX2Title, 2, 4)
+        posLayout.addWidget(self.actualX2Label, 2, 5)
 
-        posLayout.addWidget(x3SliderTitle,3,0)
-        posLayout.addWidget(self.x3Slider,3,1)
-        posLayout.addWidget(currentX3Title,3,2)
-        posLayout.addWidget(self.currentX3Edit,3,3)
-        posLayout.addWidget(actualX3Title,3,4)
-        posLayout.addWidget(self.actualX3Label,3,5)
+        posLayout.addWidget(x3SliderTitle, 3, 0)
+        posLayout.addWidget(self.x3Slider, 3, 1)
+        posLayout.addWidget(currentX3Title, 3, 2)
+        posLayout.addWidget(self.currentX3Edit, 3, 3)
+        posLayout.addWidget(actualX3Title, 3, 4)
+        posLayout.addWidget(self.actualX3Label, 3, 5)
 
         # ---------------------------------------------------------------------
         # -------------- Groupbox with data specific widgets ------------------
         # ---------------------------------------------------------------------
 
-        dataParamsGroup = QtGui.QGroupBox("Data type and presentation",
+        dataParamsGroup = QtWidgets.QGroupBox("Data type and presentation",
                                           self.centralWidget)
-        dataParamsLayout = QtGui.QGridLayout(dataParamsGroup)
+        dataParamsLayout = QtWidgets.QGridLayout(dataParamsGroup)
         dataParamsGroup.setLayout(dataParamsLayout)
 
         # --- ComboBox for datatype selection ---
 
-        self.dataTypeCombo = QtGui.QComboBox(self.centralWidget)
+        self.dataTypeCombo = QtWidgets.QComboBox(self.centralWidget)
         self.dataTypeCombo.clear()
         self.dataTypeCombo.setDisabled(True)
         self.dataTypeCombo.setObjectName("datatype-Combo")
         self.dataTypeCombo.activated[str].connect(self.dataTypeChange)
 
-        dataTypeLabel = QtGui.QLabel("Data type:")
+        dataTypeLabel = QtWidgets.QLabel("Data type:")
 
         # --- ComboBox for colormap selection ---
 
-        self.cmCombo = QtGui.QComboBox(self.centralWidget)
+        self.cmCombo = QtWidgets.QComboBox(self.centralWidget)
         self.cmCombo.clear()
         self.cmCombo.setDisabled(True)
         self.cmCombo.activated[str].connect(self.cmComboChange)
@@ -643,57 +633,57 @@ class MainWindow(QtGui.QMainWindow):
                                            norm=norm)
         self.colorbar.set_ticks([0])
 
-        colorbarLabel = QtGui.QLabel("Data range:")
+        colorbarLabel = QtWidgets.QLabel("Data range:")
         
         # --- Normalization parameter widgets ---
 
-        self.normCheck = QtGui.QCheckBox("Normalize over time")
+        self.normCheck = QtWidgets.QCheckBox("Normalize over time")
         self.normCheck.stateChanged.connect(self.normCheckChange)
         self.normCheck.setDisabled(True)
 
-        normMinTitle = QtGui.QLabel("Min:")
-        self.normMinEdit = QtGui.QLineEdit("{dat:13.4g}".format(dat=self.data.min()))
+        normMinTitle = QtWidgets.QLabel("Min:")
+        self.normMinEdit = QtWidgets.QLineEdit("{dat:13.4g}".format(dat=self.data.min()))
         self.normMinEdit.setDisabled(True)
         self.normMinEdit.textChanged.connect(self.normChange)
         self.normMinEdit.setObjectName("norm-min-Edit")
 
-        normMaxTitle = QtGui.QLabel("Max:")
-        self.normMaxEdit = QtGui.QLineEdit("{dat:13.4g}".format(dat=self.data.max()))
+        normMaxTitle = QtWidgets.QLabel("Max:")
+        self.normMaxEdit = QtWidgets.QLineEdit("{dat:13.4g}".format(dat=self.data.max()))
         self.normMaxEdit.setDisabled(True)
         self.normMaxEdit.textChanged.connect(self.normChange)
         self.normMaxEdit.setObjectName("norm-max-Edit")
 
-        normMeanTitle = QtGui.QLabel("Mean:")
-        self.normMeanLabel = QtGui.QLabel("{dat:13.4g}".format(dat=self.data.mean()))
+        normMeanTitle = QtWidgets.QLabel("Mean:")
+        self.normMeanLabel = QtWidgets.QLabel("{dat:13.4g}".format(dat=self.data.mean()))
         self.normMeanLabel.setDisabled(True)
 
-        unitTitle = QtGui.QLabel("Unit:")
-        self.unitLabel = QtGui.QLabel("")
+        unitTitle = QtWidgets.QLabel("Unit:")
+        self.unitLabel = QtWidgets.QLabel("")
 
         # --- Radiobuttons for 2D-3D-selection ---
 
-        twoDTitle = QtGui.QLabel("2D:")
-        self.twoDRadio = QtGui.QRadioButton(self.centralWidget)
+        twoDTitle = QtWidgets.QLabel("2D:")
+        self.twoDRadio = QtWidgets.QRadioButton(self.centralWidget)
         self.twoDRadio.setChecked(True)
         self.twoDRadio.setDisabled(True)
         self.twoDRadio.setObjectName("2DRadio")
         self.twoDRadio.toggled.connect(self.plotDimensionChange)
 
-        threeDTitle = QtGui.QLabel("3D:")
-        self.threeDRadio = QtGui.QRadioButton(self.centralWidget)
+        threeDTitle = QtWidgets.QLabel("3D:")
+        self.threeDRadio = QtWidgets.QRadioButton(self.centralWidget)
         self.threeDRadio.setDisabled(True)
         self.threeDRadio.setObjectName("3DRadio")
         self.threeDRadio.toggled.connect(self.plotDimensionChange)
 
         # --- Setup of data-presentation-layout ---
 
-        dataParamsLayout.addWidget(dataTypeLabel,0,0)
-        dataParamsLayout.addWidget(self.dataTypeCombo,0,1,1,3)
-        dataParamsLayout.addWidget(self.normCheck,0,4,1,2)
+        dataParamsLayout.addWidget(dataTypeLabel, 0, 0)
+        dataParamsLayout.addWidget(self.dataTypeCombo, 0, 1, 1, 3)
+        dataParamsLayout.addWidget(self.normCheck, 0, 4, 1, 2)
 
-        dataParamsLayout.addWidget(colorbarLabel,1,0)
-        dataParamsLayout.addWidget(self.colorcanvas,1,1,1,5)
-        dataParamsLayout.addWidget(self.cmCombo,1,6)
+        dataParamsLayout.addWidget(colorbarLabel, 1, 0)
+        dataParamsLayout.addWidget(self.colorcanvas, 1, 1, 1, 5)
+        dataParamsLayout.addWidget(self.cmCombo, 1, 6)
 
         dataParamsLayout.addWidget(normMinTitle,2,1)
         dataParamsLayout.addWidget(normMeanTitle,2,3)
@@ -715,77 +705,77 @@ class MainWindow(QtGui.QMainWindow):
         # ------------- Groupbox with vector plot parameters ------------------
         # ---------------------------------------------------------------------
 
-        vectorPlotGroup = QtGui.QGroupBox("Vector plot parameters",
+        vectorPlotGroup = QtWidgets.QGroupBox("Vector plot parameters",
                                           self.centralWidget)
-        vectorPlotLayout = QtGui.QGridLayout(vectorPlotGroup)
+        vectorPlotLayout = QtWidgets.QGridLayout(vectorPlotGroup)
         vectorPlotGroup.setLayout(vectorPlotLayout)
 
         # --- Checkbox for activation of vector-plot ---
 
-        vpLabel = QtGui.QLabel("Vector-plot:")
+        vpLabel = QtWidgets.QLabel("Vector-plot:")
 
-        self.vpCheck = QtGui.QCheckBox(self.centralWidget)
+        self.vpCheck = QtWidgets.QCheckBox(self.centralWidget)
         self.vpCheck.setObjectName("vp-Check")
         self.vpCheck.setDisabled(True)
         self.vpCheck.stateChanged.connect(self.vectorSetup)
 
         # --- Radiobuttons for vector-field selection ---
 
-        vpVelLabel = QtGui.QLabel("Velocity field")
+        vpVelLabel = QtWidgets.QLabel("Velocity field")
 
-        self.vpVelRadio = QtGui.QRadioButton(self.centralWidget)
+        self.vpVelRadio = QtWidgets.QRadioButton(self.centralWidget)
         self.vpVelRadio.setObjectName("vp-velRadio")
         self.vpVelRadio.setChecked(True)
         self.vpVelRadio.setDisabled(True)
         self.vpVelRadio.toggled.connect(self.vectorSetup)
 
-        vpMagLabel = QtGui.QLabel("Magnetic field")
+        vpMagLabel = QtWidgets.QLabel("Magnetic field")
 
-        self.vpMagRadio = QtGui.QRadioButton(self.centralWidget)
+        self.vpMagRadio = QtWidgets.QRadioButton(self.centralWidget)
         self.vpMagRadio.setObjectName("vp-magRadio")
         self.vpMagRadio.setDisabled(True)
         self.vpMagRadio.toggled.connect(self.vectorSetup)
 
-        vpScaleLabel = QtGui.QLabel("              Scale:")
-        self.vpScaleEdit = QtGui.QLineEdit("{dat:5.10f}".format(dat=0.0000001))
+        vpScaleLabel = QtWidgets.QLabel("\t\t\tScale:")
+        self.vpScaleEdit = QtWidgets.QLineEdit("{dat:5.10f}".format(dat=1.e-7))
         self.vpScaleEdit.setDisabled(True)
         self.vpScaleEdit.textChanged.connect(self.generalPlotRoutine)
 
-        vpXIncLabel = QtGui.QLabel("    x-increment:")
-        self.vpXIncEdit = QtGui.QLineEdit("{dat:5.0f}".format(dat=4))
+        vpXIncLabel = QtWidgets.QLabel("    x-increment:")
+        self.vpXIncEdit = QtWidgets.QLineEdit("{dat:5d}".format(dat=4))
         self.vpXIncEdit.setDisabled(True)
         self.vpXIncEdit.textChanged.connect(self.generalPlotRoutine)
 
-        vpYIncLabel = QtGui.QLabel("    y-increment:")
-        self.vpYIncEdit = QtGui.QLineEdit("{dat:5.0f}".format(dat=4))
+        vpYIncLabel = QtWidgets.QLabel("    y-increment:")
+        self.vpYIncEdit = QtWidgets.QLineEdit("{dat:5d}".format(dat=4))
         self.vpYIncEdit.setDisabled(True)
         self.vpYIncEdit.textChanged.connect(self.generalPlotRoutine)
 
-        vpAlphaLabel = QtGui.QLabel("Vector-opacity:")
-        self.vpAlphaEdit = QtGui.QLineEdit("{dat:5.0f}".format(dat=1))
+        vpAlphaLabel = QtWidgets.QLabel("Vector-opacity:")
+        self.vpAlphaEdit = QtWidgets.QLineEdit("{dat:5d}".format(dat=1))
         self.vpAlphaEdit.setDisabled(True)
         self.vpAlphaEdit.textChanged.connect(self.generalPlotRoutine)
 
         # --- Setup of vector-plot-layout ---
 
-        vectorPlotLayout.addWidget(vpLabel,0,0)
-        vectorPlotLayout.addWidget(self.vpCheck,0,1)
-        vectorPlotLayout.addWidget(QtGui.QLabel("         "),0,2)
-        vectorPlotLayout.addWidget(vpScaleLabel,0,3)
-        vectorPlotLayout.addWidget(self.vpScaleEdit,0,4)
+        vectorPlotLayout.addWidget(vpLabel, 0, 0)
+        vectorPlotLayout.addWidget(self.vpCheck, 0, 1)
+        vectorPlotLayout.addWidget(QtWidgets.QLabel("\t\t"), 0, 2)
+        vectorPlotLayout.addWidget(vpScaleLabel, 0, 3)
+        vectorPlotLayout.addWidget(self.vpScaleEdit, 0, 4)
 
-        vectorPlotLayout.addWidget(vpVelLabel,1,0)
-        vectorPlotLayout.addWidget(self.vpVelRadio,1,1)
-        vectorPlotLayout.addWidget(vpXIncLabel,1,3)
-        vectorPlotLayout.addWidget(self.vpXIncEdit,1,4)
+        vectorPlotLayout.addWidget(vpVelLabel, 1, 0)
+        vectorPlotLayout.addWidget(self.vpVelRadio, 1, 1)
+        vectorPlotLayout.addWidget(vpXIncLabel, 1, 3)
+        vectorPlotLayout.addWidget(self.vpXIncEdit, 1, 4)
 
-        vectorPlotLayout.addWidget(vpMagLabel,2,0)
-        vectorPlotLayout.addWidget(self.vpMagRadio,2,1)
-        vectorPlotLayout.addWidget(vpYIncLabel,2,3)
-        vectorPlotLayout.addWidget(self.vpYIncEdit,2,4)
+        vectorPlotLayout.addWidget(vpMagLabel, 2, 0)
+        vectorPlotLayout.addWidget(self.vpMagRadio, 2, 1)
+        vectorPlotLayout.addWidget(vpYIncLabel, 2, 3)
+        vectorPlotLayout.addWidget(self.vpYIncEdit, 2, 4)
 
-        vectorPlotLayout.addWidget(vpAlphaLabel,3,3)
-        vectorPlotLayout.addWidget(self.vpAlphaEdit,3,4)
+        vectorPlotLayout.addWidget(vpAlphaLabel, 3, 3)
+        vectorPlotLayout.addWidget(self.vpAlphaEdit, 3, 4)
 
         # ---------------------------------------------------------------------
         # --- Plot window ---
@@ -1052,7 +1042,7 @@ class MainWindow(QtGui.QMainWindow):
         ver = np.version.version
         self.constGrid = False
 
-        QtGui.QApplication.setOverrideCursor(QtGui.QCursor(QtCore.Qt.WaitCursor))
+        QtWidgets.QApplication.setOverrideCursor(QtWidgets.QCursor(QtCore.Qt.WaitCursor))
 
         if not self.meanfile:
             if self.dataTypeCombo.currentText() == "Velocity, horizontal":
@@ -1403,7 +1393,7 @@ class MainWindow(QtGui.QMainWindow):
                                 box[self.typelistind][self.dataind].data
             self.unit = self.modelfile[self.modelind].dataset[self.dsind].\
                         box[self.typelistind][self.dataind].params["u"]
-        QtGui.QApplication.restoreOverrideCursor()
+        QtWidgets.QApplication.restoreOverrideCursor()
         text = "time needed for evaluation: "+ str(time.time()-start) + "s"
         self.statusBar().showMessage(text)
 
