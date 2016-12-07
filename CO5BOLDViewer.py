@@ -2,7 +2,7 @@
 """
 Created on Tue Nov 05 08:49:34 2013
 
-@author: Rene Georg
+@author: Rene Georg Salhab
 """
 
 import sys

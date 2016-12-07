@@ -1081,7 +1081,7 @@ def saveHD5(filename, modelfile, datatype, data, time, pos, plane):
         datagroup['data'].dims[1].attach_scale(datagroup['y'])
         
     elif plane == "xz":
-        datagroup["data"] = data[:,pos[1],:]
+        datagroup["data"] = data[:, pos[1], :]
         
         datagroup["data"].dims[0].label = "x"
         datagroup["data"].dims[1].label = "z"
@@ -1106,33 +1106,23 @@ def saveHD5(filename, modelfile, datatype, data, time, pos, plane):
         
     HD5file.close()
 
-def partialderiv(qc, vc, vb, iv):
+
+def Deriv(qc, vc, vb, axis=-1):
     """
     qc: 3D array containing the variable to be differentiated, 
         values cell-centered\n
     vc: differentiate with respect to this axis, values cell-centered\n
     vb: differentiate with respect to this axis, values at cell boundaries\n
-    iv: index of axis:
-        dQ / dx : iv=1\n
-        dQ / dy : iv=2\n
-        dQ / dz : iv=3\n
+    axis: Axis along derivative shall be computed
     """
-    vc1 = vc.flatten()
-    vb1 = vb.flatten()
-    
-    vb1 = np.clip(vb1, vc1.min(), vc1.max())
-    
-    dv = np.diff(vb1)
-    
-    if iv == 1:
-        qb = interpolate.interp1d(vc1, qc, copy=False)(vb1)
-        deriv= np.diff(qb)/dv[np.newaxis,np.newaxis,:]
-                
-    elif iv == 2:
-        qb = interpolate.interp1d(vc1, qc, axis=1, copy=False)(vb1)
-        deriv= np.diff(qb,axis=1)/dv[np.newaxis,:,np.newaxis]
-                
-    elif iv == 3:
-        qb = interpolate.interp1d(vc1, qc, axis=0, copy=False)(vb1)
-        deriv=np.diff(qb,axis=0)/dv[:,np.newaxis,np.newaxis]
-    return deriv
+    vc = vc.squeeze()
+    vb = vb.squeeze()
+
+    vb = np.clip(vb, vc.min(), vc.max())
+    dv = np.diff(vb)
+
+    ind = [np.newaxis for _ in range(qc.ndim)]
+    ind[axis] = ...
+    ind = tuple(ind)
+    qb = interpolate.interp1d(vc, qc, axis=axis, copy=False, assume_sorted=True)(vb)
+    return np.diff(qb, axis=axis)/dv[ind]
