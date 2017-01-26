@@ -1,4 +1,4 @@
-# CO5BOLDViewer
+# CO5BOLDViewer 0.8
 
     # Description
 
@@ -26,14 +26,14 @@
 
     # Installation
     
-      No compilation needed.
+      No compilation needed, but highly recommended (see section "Compilation").
       Go to the directory you installed CO5BOLDViewer and start with
       
-        python CO5BOLDViewer.py
+        bash$ python CO5BOLDViewer.py
       
       or
       
-        ipython CO5BOLDViewer.py
+        bash$ ipython CO5BOLDViewer.py
 
       If all necessary modules are present it should work. If modules are missing you´ll have to install them.
       With anaconda type into the terminal/console:
@@ -45,4 +45,34 @@
         bash$ pip install pyqt5
       
       should work.
-    
+
+    # Compilation (optional)
+
+      To compile functions for computation of temperature, pressure, entropy, opacity and optical depth
+      located in eosinterx.pyx, go to the directory you installed CO5BOLDViewer and type the following command
+
+        bash& python setup.py build_ext --inplace
+
+      Ipython won´t work!
+
+      ## Benefits:
+
+        - for opacity and optical depth the results will be more accurate.
+        - better performance for most functions
+        - less memory consumption when computing temperature, pressure and entropy
+
+       The quantities will still be available, if eosinterx.pyx is not compiled, but opacoity and optical depth
+       are not computed accurately, yet. Also the memory usage is much worse.
+
+    # Change-Log
+
+      ## Verion 0.8:
+
+        - computing-option imlemented
+        - eosinter changed to class (EosInter)
+        - par-file reader introduced (not implemented, yet)
+        - Opac-class introduced. Replaces numpy-functions within setPlotData in rootelements.py
+        - version-number introduced
+        - cython-code for EosInter and Opac introduced. Compilation needed and highly recommended.
+        - minor bugs fixed
+

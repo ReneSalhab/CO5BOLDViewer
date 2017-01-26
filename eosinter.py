@@ -5,201 +5,226 @@ Created on Mon Nov 16 19:27:59 2015
 @author: René Georg Salhab
 """
 
+from __future__ import division, print_function
+
 import numexpr as ne
 import numpy as np
 
-def STP(rho, ei, eosfile, quantity='Pressure'):
-    if quantity == 'Entropy':
-        C = eosfile.block[0]["c1"].data.T
-        unit = eosfile.block[0]["c1"].params["u"]
-    elif quantity == 'Pressure':
-        C = eosfile.block[0]["c2"].data.T
-        unit = eosfile.block[0]["c2"].params["u"]
-    elif quantity == 'Temperature':
-        C = eosfile.block[0]["c3"].data.T
-        unit = eosfile.block[0]["c3"].params["u"]
-    else:
-        raise ValueError
+try:
+    import eosinterx as eosx
+    eosx_available = True
+except:
+    eosx_available = False
 
-    lnx11d = np.log(eosfile.block[0]["x1"].data +\
-                     eosfile.block[0]["x1shift"].data).squeeze()
-    lnx21d = np.log(eosfile.block[0]["x2"].data +\
-                     eosfile.block[0]["x2shift"].data).squeeze()
-    x2_shift = eosfile.block[0]["x2shift"].data
+import uio_eos as ue
 
-    n1 = lnx11d.size-1
-    n2 = lnx21d.size-1
+print("eosx available (eosinter):", eosx_available)
 
-    x1fac = float(n1) / (lnx11d.max() - lnx11d.min())
-    x2fac = float(n2) / (lnx21d.max() - lnx21d.min())
+class EosInter:
+    def __init__(self, fname):
+        """
+            Description
+            -----------
+                Opens an .eos-file given by :param fname.
+            Input
+            -----
+                :param fname: string, path and name of file with eos-related tables.
+        """
 
-    nx1 = rho.size-1
-    nx2 = rho.size-2
+        eosfile = ue.File(fname)
 
-    x1ta,x2ta,x1t,x2t,lnx1off,lnx2off,s = (np.zeros((rho.shape)) for i
-                                                    in range(7))
-    lnx1off = lnx11d[0]*np.ones(rho.shape)
-    lnx2off = lnx21d[0]*np.ones(rho.shape)
-    lnx1 = ne.evaluate('log(rho)')
-    lnx2 = ne.evaluate('log(ei+x2_shift)')
-    i1 = ne.evaluate('(lnx1-lnx1off)*x1fac').astype(int)
-    i2 = ne.evaluate('(lnx2-lnx2off)*x2fac').astype(int)
-    i1[i1<0] = 0
-    i2[i2<0] = 0
-    i1[i1>nx1] = nx1
-    i2[i2>nx2] = nx2
-    lnx11d = lnx11d[i1]
-    lnx21d = lnx21d[i2]
-    C = C[:,i1,i2]
-    C1,C2,C3,C4,C5,C6,C7,C8,C9,C10,C11,C12,C13,C14,C15,C16 = C
-    x1ta = lnx1 - lnx11d
-    x2ta = lnx2 - lnx21d
-    if quantity == "Entropy":
-        return ne.evaluate('C1+x1ta*(C2+x1ta*(C3+x1ta*C4))+x2ta*(C5+x1ta*(C6+\
-                            x1ta*(C7+x1ta*C8))+x2ta*(C9+x1ta*(C10+x1ta*(C11+\
-                            x1ta*C12))+x2ta*(C13+x1ta*(C14+x1ta*(C15+x1ta*C16)))))'), unit
-    elif quantity in ["Pressure","Temperature"]:
-        return ne.evaluate('exp(C1+x1ta*(C2+x1ta*(C3+x1ta*C4))+x2ta*(C5+x1ta*(C6+\
-                            x1ta*(C7+x1ta*C8))+x2ta*(C9+x1ta*(C10+x1ta*(C11+x1ta*C12))+\
-                            x2ta*(C13+x1ta*(C14+x1ta*(C15+x1ta*C16))))))'), unit
+        self.eosf = eosfile
 
-def PandT(rho, ei, eosfile):
-    
-    CP = eosfile.block[0]["c2"].data.T
-    CT = eosfile.block[0]["c3"].data.T
+        self.cent = eosfile.block[0]['c1'].data.T
+        self.cpress = eosfile.block[0]['c2'].data.T
+        self.ctemp = eosfile.block[0]['c3'].data.T
 
-    lnx11d = np.log(eosfile.block[0]["x1"].data +\
-                     eosfile.block[0]["x1shift"].data).squeeze()
-    lnx21d = np.log(eosfile.block[0]["x2"].data +\
-                     eosfile.block[0]["x2shift"].data).squeeze()
-    x2_shift = eosfile.block[0]["x2shift"].data
+        self.lnx11d = np.log(eosfile.block[0]['x1'].data + eosfile.block[0]['x1shift'].data).squeeze()
+        self.lnx21d = np.log(eosfile.block[0]['x2'].data + eosfile.block[0]['x2shift'].data).squeeze()
+        self.x2shift = eosfile.block[0]['x2shift'].data
 
-    n1 = lnx11d.size-1
-    n2 = lnx21d.size-1
+        self.n1 = self.lnx11d.size - 1
+        self.n2 = self.lnx21d.size - 1
 
-    x1fac = float(n1) / (lnx11d.max() - lnx11d.min())
-    x2fac = float(n2) / (lnx21d.max() - lnx21d.min())
+        self.x1fac = self.n1 / (self.lnx11d.max() - self.lnx11d.min())
+        self.x2fac = self.n2 / (self.lnx21d.max() - self.lnx21d.min())
 
-    nx1 = rho.size-1
-    nx2 = rho.size-2
+    def __prep(self, rho, ei):
+        nx1 = rho.size - 1
+        nx2 = rho.size - 2
 
-    x1ta,x2ta,x1t,x2t,lnx1off,lnx2off,s = (np.zeros((rho.shape)) for i
-                                                    in range(7))
-    lnx1off = lnx11d[0]*np.ones(rho.shape)
-    lnx2off = lnx21d[0]*np.ones(rho.shape)
-    lnx1 = ne.evaluate('log(rho)')
-    lnx2 = ne.evaluate('log(ei+x2_shift)')
-    i1 = ne.evaluate('(lnx1-lnx1off)*x1fac').astype(int)
-    i2 = ne.evaluate('(lnx2-lnx2off)*x2fac').astype(int)
-    i1[i1<0] = 0
-    i2[i2<0] = 0
-    i1[i1>nx1] = nx1
-    i2[i2>nx2] = nx2
-    lnx11d = lnx11d[i1]
-    lnx21d = lnx21d[i2]
-    C = eosfile.block[0]["c2"].data.T
-    C = C[:,i1,i2]
-    C1,C2,C3,C4,C5,C6,C7,C8,C9,C10,C11,C12,C13,C14,C15,C16 = C
-    x1ta = lnx1 - lnx11d
-    x2ta = lnx2 - lnx21d
-    P = ne.evaluate('exp(C1+x1ta*(C2+x1ta*(C3+x1ta*C4))+x2ta*(C5+x1ta*(C6+\
-                     x1ta*(C7+x1ta*C8))+x2ta*(C9+x1ta*(C10+x1ta*(C11+x1ta*C12))+\
-                     x2ta*(C13+x1ta*(C14+x1ta*(C15+x1ta*C16))))))')
-    C = eosfile.block[0]["c3"].data.T
-    C = C[:,i1,i2]
-    C1,C2,C3,C4,C5,C6,C7,C8,C9,C10,C11,C12,C13,C14,C15,C16 = C
-    return P, ne.evaluate('exp(C1+x1ta*(C2+x1ta*(C3+x1ta*C4))+x2ta*(C5+x1ta*(C6+\
-                           x1ta*(C7+x1ta*C8))+x2ta*(C9+x1ta*(C10+x1ta*(C11+x1ta*C12))+\
-                           x2ta*(C13+x1ta*(C14+x1ta*(C15+x1ta*C16))))))')
+        lnx1 = ne.evaluate("log(rho)")
+        lnx2 = ne.evaluate("log(ei+x2)", local_dict={'ei': ei}, global_dict={'x2': self.x2shift})
 
-def Pall(rho, ei, eosfile):
-    C = eosfile.block[0]["c2"].data.T
-    C = C.T
+        i1 = ne.evaluate("(lnx1 - x1off) * x1fac", local_dict={'lnx1': lnx1}, global_dict={'x1fac': self.x1fac,
+                                                               'x1off': self.lnx11d[0]}).astype(int).clip(0, nx1)
+        i2 = ne.evaluate("(lnx2 - x2off) * x2fac", local_dict={'lnx2': lnx2}, global_dict={'x2fac': self.x2fac,
+                                                               'x2off': self.lnx21d[0]}).astype(int).clip(0, nx2)
 
-    lnx11d = np.log(eosfile.block[0]["x1"].data +\
-                     eosfile.block[0]["x1shift"].data).squeeze()
-    lnx21d = np.log(eosfile.block[0]["x2"].data +\
-                     eosfile.block[0]["x2shift"].data).squeeze()
+        lnx11d = self.lnx11d[i1]
+        lnx21d = self.lnx21d[i2]
 
-    x2_shift = eosfile.block[0]["x2shift"].data
+        x1ta = ne.evaluate('lnx1 - lnx11d')
+        x2ta = ne.evaluate('lnx2 - lnx21d')
 
-    n1 = lnx11d.size-1
-    n2 = lnx21d.size-1
+        return x1ta, x2ta, i1, i2
 
-    x1fac = float(n1) / (lnx11d.max() - lnx11d.min())
-    x2fac = float(n2) / (lnx21d.max() - lnx21d.min())
+    def unit(self, quantity="Pressure"):
+        """
+            Description
+            -----------
+                returns the unit of :param quantity
+            Input
+            -----
+                :param quantity: string, the demanded quantity.
+                    Possibilities: Entropy: "Entropy", "entropy", "E", "e"
+                                   Pressure: "Pressure", "pressure", "P", "p"
+                                   Temperature: "Temperature", "temperature", "T", "t"
+            Output
+            ------
+                :return: string, unit of :param quantity:.
+        """
+        if quantity in ["Entropy", "entropy", "E", "e"]:
+            unit = self.eosf.block[0]['c1'].params['u']
+        elif quantity in ["Pressure", "pressure", "P", "p"]:
+            unit = self.eosf.block[0]['c2'].params['u']
+        elif quantity in ["Temperature", "temperature", "T", "t"]:
+            unit = self.eosf.block[0]['c3'].params['u']
+        else:
+            raise ValueError('{0} is not valid quantity'.format(quantity))
+        return unit
 
-    nx1 = rho.size-1
-    nx2 = rho.size-2
+    def STP(self, rho, ei, quantity="Pressure"):
+        """
+            Description
+            -----------
+                Computes the entropy, pressure, or temperature with the hekp of the eos-file.
+            Input
+            -----
+                :param rho: ndarray, shape of simulation box, density-field
+                :param ei: ndarray, shape of simulation box, internal energy-field
+                :param quantity: string, the demanded quantity.
+                    Possibilities: Entropy: "Entropy", "entropy", "E", "e"
+                                   Pressure: "Pressure", "pressure", "P", "p"
+                                   Temperature: "Temperature", "temperature", "T", "t"
+            Output
+            ------
+                :return: ndarray, shape of simulation box, values of :param quantity:.
+        """
+        x1ta, x2ta, i1, i2 = self.__prep(rho, ei)
 
-    x1ta,x2ta,x1t,x2t,lnx1off,lnx2off,s = (np.zeros((rho.shape)) for i
-                                                    in range(7))
-    lnx1off = lnx11d[0]*np.ones(rho.shape)
-    lnx2off = lnx21d[0]*np.ones(rho.shape)
-    lnx1 = ne.evaluate('log(rho)')
-    lnx2 = ne.evaluate('log(ei+x2_shift)')
-    i1 = ne.evaluate('(lnx1-lnx1off)*x1fac').astype(int)
-    i2 = ne.evaluate('(lnx2-lnx2off)*x2fac').astype(int)
-    i1[i1<0] = 0
-    i2[i2<0] = 0
-    i1[i1>nx1] = nx1
-    i2[i2>nx2] = nx2
-    lnx11d = lnx11d[i1]
-    lnx21d = lnx21d[i2]
-    C = C[:,i1,i2]
-    C1,C2,C3,C4,C5,C6,C7,C8,C9,C10,C11,C12,C13,C14,C15,C16 = C
-    x1ta = lnx1 - lnx11d
-    x2ta = lnx2 - lnx21d
-    P = ne.evaluate('exp(C1+x1ta*(C2+x1ta*(C3+x1ta*C4))+x2ta*(C5+x1ta*(C6+x1ta*(C7+\
-                     x1ta*C8))+x2ta*(C9+x1ta*(C10+x1ta*(C11+x1ta*C12))+x2ta*(C13+x1ta*(\
-                     C14 + x1ta*(C15 + x1ta*C16))))))')
-    dPdrho = ne.evaluate('P/rho*(C2+x1ta*(2*C3+x1ta*3*C4)+x2ta*(C6+x1ta*(2*C7+x1ta*3*C8)+\
-                          x2ta*(C10+x1ta*(2*C11+x1ta*3*C12)+x2ta*(C14+x1ta*(2*C15+\
-                          x1ta*3*C16)))))')
-    dPde = ne.evaluate('P/(ei+x2_shift)*(C5+x1ta*(C6+x1ta*(C7+x1ta*C8))+2*x2ta*(C9+\
-                        x1ta*(C10+x1ta*(C11+x1ta*C12))+1.5*x2ta*(C13+x1ta*(C14+x1ta*\
-                        (C15+x1ta*C16)))))')
-    return P, dPdrho, dPde
+        if quantity in ['Entropy', 'entropy', 'E', 'e']:
+            if eosx_available:
+                C = self.cent.newbyteorder()
+                C = C.byteswap()
+                if rho.ndim == 3:
+                    return eosx.STP3D(rho.astype(np.float64), ei.astype(np.float64), C.astype(np.float64),
+                                      i1.astype(np.int32), i2.astype(np.int32), x1ta.astype(np.float64),
+                                      x2ta.astype(np.float64))
+                elif rho.ndim == 4:
+                    return eosx.STP4D(rho.astype(np.float64), ei.astype(np.float64), C.astype(np.float64),
+                                      i1.astype(np.int32), i2.astype(np.int32), x1ta.astype(np.float64),
+                                      x2ta.astype(np.float64))
+            C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15, C16 = self.cpress[:, i1, i2]
+            return ne.evaluate("C1+x1ta*(C2+x1ta*(C3+x1ta*C4))+x2ta*(C5+x1ta*(C6+x1ta*(C7+x1ta*C8))+x2ta*(C9+x1ta*"
+                               "(C10+x1ta*(C11+x1ta*C12))+x2ta*(C13+x1ta*(C14+x1ta*(C15+x1ta*C16)))))")
+        elif quantity in ["Pressure", "pressure", "P", "p"]:
+            if eosx_available:
+                C = self.cpress.newbyteorder()
+                C = C.byteswap()
+                if rho.ndim == 3:
+                    return ne.evaluate("exp(P)", local_dict={'P': eosx.STP3D(rho.astype(np.float64),
+                                                                             ei.astype(np.float64), C.astype(np.float64),
+                                                                             i1.astype(np.int32), i2.astype(np.int32),
+                                                                             x1ta.astype(np.float64),
+                                                                             x2ta.astype(np.float64))})
+                elif rho.ndim == 4:
+                    return ne.evaluate("exp(P)", local_dict={'P': eosx.STP4D(rho.astype(np.float64), ei.astype(np.float64),
+                                                                             C.astype(np.float64), i1.astype(np.int32),
+                                                                             i2.astype(np.int32), x1ta.astype(np.float64),
+                                                                             x2ta.astype(np.float64))})
+            C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15, C16 = self.cpress[:, i1, i2]
+        elif quantity in ["Temperature", "temperature", "T", "t"]:
+            if eosx_available:
+                C = self.ctemp.newbyteorder()
+                C = C.byteswap()
+                if rho.ndim == 3:
+                    return ne.evaluate("exp(T)", local_dict={'T': eosx.STP3D(rho.astype(np.float64), ei.astype(np.float64),
+                                                                             C.astype(np.float64), i1.astype(np.int32),
+                                                                             i2.astype(np.int32), x1ta.astype(np.float64),
+                                                                             x2ta.astype(np.float64))})
+                elif rho.ndim == 4:
+                    return ne.evaluate("exp(T)", local_dict={'T': eosx.STP4D(rho.astype(np.float64), ei.astype(np.float64),
+                                                                             C.astype(np.float64), i1.astype(np.int32),
+                                                                             i2.astype(np.int32), x1ta.astype(np.float64),
+                                                                             x2ta.astype(np.float64))})
+            C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15, C16 = self.ctemp[:, i1, i2]
+        else:
+            raise ValueError
+        return ne.evaluate("exp(C1+x1ta*(C2+x1ta*(C3+x1ta*C4))+x2ta*(C5+x1ta*(C6+x1ta*(C7+x1ta*C8))+\
+                             x2ta*(C9+x1ta*(C10+x1ta*(C11+x1ta*C12))+x2ta*(C13+x1ta*(C14+x1ta*(C15+x1ta*C16))))))")
 
-def Tall(rho, ei, eosfile, C):
-    lnx11d = np.log(eosfile.block[0]["x1"].data +\
-                     eosfile.block[0]["x1shift"].data).squeeze()
-    lnx21d = np.log(eosfile.block[0]["x2"].data +\
-                     eosfile.block[0]["x2shift"].data).squeeze()
-    C = C.T
-    x2_shift = eosfile.block[0]["x2shift"].data
+    def PandT(self, rho, ei):
+        x1ta, x2ta, i1, i2 = self.__prep(rho, ei)
 
-    n1 = lnx11d.size-1
-    n2 = lnx21d.size-1
+        if eosx_available:
+            CP = self.cpress.newbyteorder()
+            CP = CP.byteswap()
+            CT = self.ctemp.newbyteorder()
+            CT = CT.byteswap()
+            if rho.ndim == 3:
+                return eosx.PandT3D(rho.astype(np.float64), ei.astype(np.float64), CP.astype(np.float64),
+                                    CT.astype(np.float64), i1.astype(np.int32), i2.astype(np.int32),
+                                    x1ta.astype(np.float64), x2ta.astype(np.float64))
+            elif rho.ndim == 4:
+                return eosx.PandT4D(rho.astype(np.float64), ei.astype(np.float64), CP.astype(np.float64),
+                                    CT.astype(np.float64), i1.astype(np.int32), i2.astype(np.int32),
+                                    x1ta.astype(np.float64), x2ta.astype(np.float64))
+        C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15, C16 = self.cpress[:, i1, i2]
+        P = ne.evaluate("exp(C1+x1ta*(C2+x1ta*(C3+x1ta*C4))+x2ta*(C5+x1ta*(C6+x1ta*(C7+x1ta*C8))+\
+                              x2ta*(C9+x1ta*(C10+x1ta*(C11+x1ta*C12))+x2ta*(C13+x1ta*(C14+x1ta*(C15+x1ta*C16))))))")
+        C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15, C16 = self.ctemp[:, i1, i2]
+        return P, ne.evaluate("exp(C1+x1ta*(C2+x1ta*(C3+x1ta*C4))+x2ta*(C5+x1ta*(C6+x1ta*(C7+x1ta*C8))+\
+                                x2ta*(C9+x1ta*(C10+x1ta*(C11+x1ta*C12))+x2ta*(C13+x1ta*(C14+x1ta*(C15+x1ta*C16))))))")
 
-    x1fac = float(n1) / (lnx11d.max() - lnx11d.min())
-    x2fac = float(n2) / (lnx21d.max() - lnx21d.min())
+    def Pall(self, rho, ei):
+        x1ta, x2ta, i1, i2 = self.__prep(rho, ei)
 
-    nx1 = rho.size-1
-    nx2 = rho.size-2
+        if eosx_available:
+            C = self.cpress.newbyteorder()
+            C = C.byteswap()
+            if rho.ndim == 3:
+                return eosx.Pall3D(rho.astype(np.float64), ei.astype(np.float64), C.astype(np.float64),
+                                   i1.astype(np.int32), i2.astype(np.int32), x1ta.astype(np.float64),
+                                   x2ta.astype(np.float64), self.x2shift)
+            elif rho.ndim == 4:
+                return eosx.Pall4D(rho.astype(np.float64), ei.astype(np.float64), C.astype(np.float64),
+                                   i1.astype(np.int32), i2.astype(np.int32), x1ta.astype(np.float64),
+                                   x2ta.astype(np.float64), self.x2shift)
+        C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15, C16 = self.cpress[:, i1, i2]
+        P = ne.evaluate("exp(C1+x1ta*(C2+x1ta*(C3+x1ta*C4))+x2ta*(C5+x1ta*(C6+x1ta*(C7+x1ta*C8))+\
+                          x2ta*(C9+x1ta*(C10+x1ta*(C11+x1ta*C12))+x2ta*(C13+x1ta*(C14+x1ta*(C15+x1ta*C16))))))")
+        dPdrho = ne.evaluate("P/rho*(C2+x1ta*(2*C3+x1ta*3*C4)+x2ta*(C6+x1ta*(2*C7+x1ta*3*C8)+x2ta*(C10+x1ta*(2*C11+\
+                               x1ta*3*C12)+x2ta*(C14+x1ta*(2*C15+x1ta*3*C16)))))")
+        return P, dPdrho, ne.evaluate("P/(ei+x2_shift)*(C5+x1ta*(C6+x1ta*(C7+x1ta*C8))+2*x2ta*(C9+x1ta*(C10+x1ta*\
+                                        (C11+x1ta*C12))+1.5*x2ta*(C13+x1ta*(C14+x1ta*(C15+x1ta*C16)))))")
 
-    x1ta,x2ta,x1t,x2t,lnx1off,lnx2off,s = (np.zeros((rho.shape)) for i
-                                                    in range(7))
-    lnx1off = lnx11d[0]*np.ones(rho.shape)
-    lnx2off = lnx21d[0]*np.ones(rho.shape)
-    lnx1 = ne.evaluate('log(rho)')
-    lnx2 = ne.evaluate('log(ei+x2_shift)')
-    i1 = ne.evaluate('(lnx1-lnx1off)*x1fac').astype(int)
-    i2 = ne.evaluate('(lnx2-lnx2off)*x2fac').astype(int)
-    i1[i1<0] = 0
-    i2[i2<0] = 0
-    i1[i1>nx1] = nx1
-    i2[i2>nx2] = nx2
-    lnx11d = lnx11d[i1]
-    lnx21d = lnx21d[i2]
-    C = C[:,i1,i2]
-    C1,C2,C3,C4,C5,C6,C7,C8,C9,C10,C11,C12,C13,C14,C15,C16 = C
-    x1ta = lnx1 - lnx11d
-    x2ta = lnx2 - lnx21d
-    T = ne.evaluate('exp(C1+x1ta*(C2+x1ta*(C3+x1ta*C4))+x2ta*(C5+x1ta*(C6+x1ta*(C7+\
-                     x1ta*C8))+x2ta*(C9+x1ta*(C10+x1ta*(C11+x1ta*C12))+x2ta*(C13+x1ta*(\
-                     C14+x1ta*(C15+x1ta*C16))))))')
-    dTde = ne.evaluate('T/(ei+x2_shift)*(C5+x1ta*(C6+x1ta*(C7+x1ta*C8))+2*x2ta*(C9+\
-                        x1ta*(C10+x1ta*(C11+x1ta*C12))+1.5*x2ta*(C13+x1ta*(C14+x1ta*\
-                        (C15+x1ta*C16)))))')
-    return T, dTde
+    def Tall(self, rho, ei):
+        x1ta, x2ta, i1, i2 = self.__prep(rho, ei)
+
+        if eosx_available:
+            C = self.ctemp.newbyteorder()
+            C = C.byteswap()
+            if rho.ndim == 3:
+                return eosx.Tall3D(rho.astype(np.float64), ei.astype(np.float64), C.astype(np.float64),
+                                   i1.astype(np.int32), i2.astype(np.int32), x1ta.astype(np.float64),
+                                   x2ta.astype(np.float64), self.x2shift)
+            elif rho.ndim == 4:
+                return eosx.Tall4D(rho.astype(np.float64), ei.astype(np.float64), C.astype(np.float64),
+                                   i1.astype(np.int32), i2.astype(np.int32), x1ta.astype(np.float64),
+                                   x2ta.astype(np.float64), self.x2shift)
+        C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15, C16 = self.ctemp[:, i1, i2]
+        T = ne.evaluate("exp(C1+x1ta*(C2+x1ta*(C3+x1ta*C4))+x2ta*(C5+x1ta*(C6+x1ta*(C7+x1ta*C8))+\
+                          x2ta*(C9+x1ta*(C10+x1ta*(C11+x1ta*C12))+x2ta*(C13+x1ta*(C14+x1ta*(C15+x1ta*C16))))))")
+        return T, ne.evaluate("T/(ei+x2_shift)*(C5+x1ta*(C6+x1ta*(C7+x1ta*C8))+2*x2ta*(C9+x1ta*\
+                                (C10+x1ta*(C11+x1ta*C12))+1.5*x2ta*(C13+x1ta*(C14+x1ta*(C15+x1ta*C16)))))")

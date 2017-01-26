@@ -2,7 +2,7 @@
 """
 Created on Tue Nov 05 10:12:33 2013
 
-@author: Rene Georg
+@author: René Georg Salhab
 """
 
 from __future__ import print_function
@@ -14,7 +14,7 @@ import bisect
 import numpy as np
 import numexpr as ne
 from scipy import interpolate as ip
-from scipy import integrate as integ
+from PyQt5 import QtCore, QtGui, QtWidgets
 
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
@@ -23,18 +23,14 @@ import matplotlib.colorbar as clbar
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
 import uio
-import uio_eos
-import eosinter
+from opta import Opac
 import subclasses as sc
-import read_opta as ropa
-
-#from PySide import QtCore, QtWidgets
-from PyQt5 import QtCore, QtGui, QtWidgets
+from eosinter import EosInter
 
 
 class MainWindow(QtWidgets.QMainWindow):
-
     def __init__(self):
+        self.version = '0.8'
         super(MainWindow, self).__init__()
 
         self.initUI()
@@ -43,7 +39,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.centralWidget = QtWidgets.QWidget(self)
 
-        self.setWindowTitle('CO5BOLDViewer')
+        self.setWindowTitle("CO5BOLDViewer {}".format(self.version))
         self.setGeometry(100, 100, 1000, 700)
 
         QtWidgets.QToolTip.setFont(QtGui.QFont('SansSerif', 10))
@@ -103,6 +99,11 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.data = np.outer(self.xc1, self.xc2)
 
+        # --- math functions for post-processing data ---
+
+        self.postmath = {'----': "data", 'log': "log(data)", '| |': "abs(data)", 'log(| |)': "log(abs(data))",
+                         'exp': "exp(data)"}
+
         # --- Available Colormaps ---
 
         self.cmaps = list(cm.datad.keys())
@@ -116,6 +117,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.eos = False
         self.opa = False
+
+        # --- plot-control ---
+
+        self.plot = False
 
     def setMenu(self):
         # --------------------------------------------------------------------
@@ -173,7 +178,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # --- Initialize menubar ---
 
         menubar = QtWidgets.QMenuBar(self)
-        
+
         # --- "File" drop-down menu elements ---
 
         fileMenu = QtWidgets.QMenu("&File", self)
@@ -196,7 +201,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def showImageSaveDialog(self):
         sc.showImageSaveDialog(self.modelfile, self.data, self.timeSlider.value(), self.dataTypeCombo.currentText(),
-                               self.time[:,0], self.x1Slider.value(), self.xc1, self.x2Slider.value(), self.xc2,
+                               self.time[:, 0], self.x1Slider.value(), self.xc1, self.x2Slider.value(), self.xc2,
                                self.x3Slider.value(), self.xc3, self.cmCombo.currentIndex(),
                                self.dataTypeCombo.currentIndex())
 
@@ -230,7 +235,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 # --- content from .mean file ---
                 # --- Components depict box number from filestructure (see manual
                 # --- of Co5bold)
-                
+
                 self.dataTypeList = ({"Bolometric intensity": "intb3_r", "Intensity (bin 1)": "int01b3_r",
                                       "Intensity (bin 2)": "int02b3_r", "Intensity (bin 3)": "int03b3_r",
                                       "Intensity (bin 4)": "int04b3_r", "Intensity (bin 5)": "int05b3_r"},
@@ -273,7 +278,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
             QtWidgets.QApplication.restoreOverrideCursor()
             self.statusBar().showMessage("Loaded {f} files".format(f=str(len(self.fname))))
-    
+
     def showSaveSliceDialog(self):
         if not self.stdDir:
             self.stdDir = os.path.curdir
@@ -310,7 +315,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.statusBar().showMessage("Read EOS file...")
             QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
 
-            self.eosfile = uio_eos.File(self.eosname)
+            self.Eos = EosInter(self.eosname)
 
             if not self.eos:
                 self.dataTypeList[1]["Temperature"] = "temp"
@@ -347,18 +352,13 @@ class MainWindow(QtWidgets.QMainWindow):
             self.statusBar().showMessage("Read opacity file...")
             QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
 
-            self.opatemp, self.opapress, self.opacity = ropa.read_opta(self.opaname)
-            self.opatemp = 10.0**self.opatemp
-            self.opapress = 10.0**self.opapress
-            self.opacity = np.transpose(self.opacity, axes=(1, 2, 0))
-
+            self.Opa = Opac(self.opaname)
             if self.eos:
                 self.dataTypeList[1]["Opacity"] = "opa"
                 self.dataTypeList[1]["Optical depth"] = "optdep"
 
                 self.dataTypeCombo.addItem("Opacity")
                 self.dataTypeCombo.addItem("Optical depth")
-
             self.opa = True
 
             QtWidgets.QApplication.restoreOverrideCursor()
@@ -412,9 +412,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.nextTimeBtn.setDisabled(True)
         self.nextTimeBtn.clicked.connect(self.timeBtnClick)
         self.nextTimeBtn.setObjectName("next-time-Button")
-        
+
         # --- Label for time-slider
-        
+
         timeTitle = QtWidgets.QLabel("Time step:")
 
         self.currentTimeEdit = QtWidgets.QLineEdit(str(self.timeSlider.value()))
@@ -449,10 +449,11 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # --- ComboBox for projection plane selection ---
 
+        planeLabel = QtWidgets.QLabel("Projection plane:")
         self.planeCombo = QtWidgets.QComboBox(self.centralWidget)
         self.planeCombo.clear()
         self.planeCombo.setDisabled(True)
-        self.planeCombo.activated[str].connect(self.planeCheck)
+        self.planeCombo.activated.connect(self.planeCheck)
         self.planeCombo.setObjectName("plane-Combo")
         self.planeCombo.addItem("xy")
         self.planeCombo.addItem("xz")
@@ -486,10 +487,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.x3Slider.setDisabled(True)
         self.x3Slider.valueChanged.connect(self.SliderChange)
         self.x3Slider.setObjectName("x3-Slider")
-
-        # --- Label for Combobox for projection plane selection ---
-
-        planeLabel = QtWidgets.QLabel("Projection plane:")
 
         # --- Labels for sliders of spatial directions ---
 
@@ -568,8 +565,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # -------------- Groupbox with data specific widgets ------------------
         # ---------------------------------------------------------------------
 
-        dataParamsGroup = QtWidgets.QGroupBox("Data type and presentation",
-                                          self.centralWidget)
+        dataParamsGroup = QtWidgets.QGroupBox("Data type and presentation", self.centralWidget)
         dataParamsLayout = QtWidgets.QGridLayout(dataParamsGroup)
         dataParamsGroup.setLayout(dataParamsLayout)
 
@@ -579,7 +575,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dataTypeCombo.clear()
         self.dataTypeCombo.setDisabled(True)
         self.dataTypeCombo.setObjectName("datatype-Combo")
-        self.dataTypeCombo.activated[str].connect(self.dataTypeChange)
+        self.dataTypeCombo.activated.connect(self.dataTypeChange)
 
         dataTypeLabel = QtWidgets.QLabel("Data type:")
 
@@ -588,7 +584,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.cmCombo = QtWidgets.QComboBox(self.centralWidget)
         self.cmCombo.clear()
         self.cmCombo.setDisabled(True)
-        self.cmCombo.activated[str].connect(self.cmComboChange)
+        self.cmCombo.activated.connect(self.cmComboChange)
         self.cmCombo.addItems(self.cmaps)
         self.cmCombo.setCurrentIndex(self.cmaps.index("jet"))
         self.cmCombo.setObjectName("colormap-Combo")
@@ -601,14 +597,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.colorcanvas.setMinimumHeight(20)
         self.colorcanvas.setMaximumHeight(20)
 
-        colorax = colorfig.add_axes([0,0,1,1])
-        norm = cl.Normalize(0,1)
-        self.colorbar = clbar.ColorbarBase(colorax, orientation="horizontal",
-                                           norm=norm)
+        colorax = colorfig.add_axes([0, 0, 1, 1])
+        norm = cl.Normalize(0, 1)
+        self.colorbar = clbar.ColorbarBase(colorax, orientation="horizontal", norm=norm)
         self.colorbar.set_ticks([0])
 
         colorbarLabel = QtWidgets.QLabel("Data range:")
-        
+
         # --- Normalization parameter widgets ---
 
         self.normCheck = QtWidgets.QCheckBox("Normalize over time")
@@ -634,6 +629,16 @@ class MainWindow(QtWidgets.QMainWindow):
         unitTitle = QtWidgets.QLabel("Unit:")
         self.unitLabel = QtWidgets.QLabel("")
 
+        # --- ComboBox with math-selection ---
+
+        self.mathCombo = QtWidgets.QComboBox(self.centralWidget)
+        self.mathCombo.clear()
+        self.mathCombo.setDisabled(True)
+        self.mathCombo.activated.connect(self.mathComboChange)
+        self.mathCombo.addItems(self.postmath.keys())
+        self.mathCombo.setCurrentText("----")
+        self.mathCombo.setObjectName("math-Combo")
+
         # --- Radiobuttons for 2D-3D-selection ---
 
         twoDTitle = QtWidgets.QLabel("2D:")
@@ -654,6 +659,7 @@ class MainWindow(QtWidgets.QMainWindow):
         dataParamsLayout.addWidget(dataTypeLabel, 0, 0)
         dataParamsLayout.addWidget(self.dataTypeCombo, 0, 1, 1, 3)
         dataParamsLayout.addWidget(self.normCheck, 0, 4, 1, 2)
+        dataParamsLayout.addWidget(self.mathCombo, 0, 6, 1, 1)
 
         dataParamsLayout.addWidget(colorbarLabel, 1, 0)
         dataParamsLayout.addWidget(self.colorcanvas, 1, 1, 1, 5)
@@ -709,23 +715,23 @@ class MainWindow(QtWidgets.QMainWindow):
         self.vpMagRadio.setDisabled(True)
         self.vpMagRadio.toggled.connect(self.vectorSetup)
 
-        vpScaleLabel = QtWidgets.QLabel("\t\t\tScale:")
-        self.vpScaleEdit = QtWidgets.QLineEdit("{dat:5.10f}".format(dat=1.e-7))
+        vpScaleLabel = QtWidgets.QLabel("Scale:")
+        self.vpScaleEdit = QtWidgets.QLineEdit("{dat:5.2g}".format(dat=1.e-7))
         self.vpScaleEdit.setDisabled(True)
         self.vpScaleEdit.textChanged.connect(self.generalPlotRoutine)
 
-        vpXIncLabel = QtWidgets.QLabel("    x-increment:")
-        self.vpXIncEdit = QtWidgets.QLineEdit("{dat:5d}".format(dat=4))
+        vpXIncLabel = QtWidgets.QLabel("x-increment:")
+        self.vpXIncEdit = QtWidgets.QLineEdit("{dat:8d}".format(dat=4))
         self.vpXIncEdit.setDisabled(True)
         self.vpXIncEdit.textChanged.connect(self.generalPlotRoutine)
 
-        vpYIncLabel = QtWidgets.QLabel("    y-increment:")
-        self.vpYIncEdit = QtWidgets.QLineEdit("{dat:5d}".format(dat=4))
+        vpYIncLabel = QtWidgets.QLabel("y-increment:")
+        self.vpYIncEdit = QtWidgets.QLineEdit("{dat:8d}".format(dat=4))
         self.vpYIncEdit.setDisabled(True)
         self.vpYIncEdit.textChanged.connect(self.generalPlotRoutine)
 
         vpAlphaLabel = QtWidgets.QLabel("Vector-opacity:")
-        self.vpAlphaEdit = QtWidgets.QLineEdit("{dat:5d}".format(dat=1))
+        self.vpAlphaEdit = QtWidgets.QLineEdit("{dat:8d}".format(dat=1))
         self.vpAlphaEdit.setDisabled(True)
         self.vpAlphaEdit.textChanged.connect(self.generalPlotRoutine)
 
@@ -733,7 +739,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         vectorPlotLayout.addWidget(vpLabel, 0, 0)
         vectorPlotLayout.addWidget(self.vpCheck, 0, 1)
-        vectorPlotLayout.addWidget(QtWidgets.QLabel("\t\t"), 0, 2)
+        vectorPlotLayout.addWidget(QtWidgets.QLabel("\t\t\t"), 0, 2)
         vectorPlotLayout.addWidget(vpScaleLabel, 0, 3)
         vectorPlotLayout.addWidget(self.vpScaleEdit, 0, 4)
 
@@ -796,7 +802,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.time = []
             for i in range(len(self.modelfile)):
                 for j in range(len(self.modelfile[i].dataset)):
-                    self.time.append([self.modelfile[i].dataset[j]["modeltime"].data,i,j])
+                    self.time.append([self.modelfile[i].dataset[j]["modeltime"].data, i, j])
         self.time = np.array(self.time)
         self.timlen = len(self.time[:,0])
 
@@ -854,6 +860,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.vpXIncEdit.setDisabled(False)
             self.vpYIncEdit.setDisabled(False)
 
+        self.mathCombo.setDisabled(False)
         self.crossCheck.setDisabled(False)
 
         # -----------------------------------
@@ -955,8 +962,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.x1ind = 0
                 self.x3ind = 0
             elif self.direction == 2:
-                self.x2ind == 0
-                self.x3ind == 0
+                self.x2ind = 0
+                self.x3ind = 0
         self.normCheck.setDisabled(False)
         self.data = self.setPlotData(self.modelind, self.dsind)
 
@@ -1050,7 +1057,7 @@ class MainWindow(QtWidgets.QMainWindow):
             elif self.dataTypeCombo.currentText() == "Vert. mass flux (Rho*V3)":
                 v3 = self.modelfile[mod].dataset[dat].box[0]["v3"].data
                 rho = self.modelfile[mod].dataset[dat].box[0]["rho"].data
-                
+
                 data = ne.evaluate("rho*v3")
                 self.unit = "g/(cm^2 * s)"
             elif self.dataTypeCombo.currentText() == "Magnetic field Bx":
@@ -1064,7 +1071,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 data = ip.interp1d(self.xb2, bb2, axis=1, copy=False, assume_sorted=True)(self.xc2) *\
                             math.sqrt(const)
                 self.unit = "G"
-            
+
             elif self.dataTypeCombo.currentText() == "Magnetic field Bz":
                 bb3 = self.modelfile[mod].dataset[dat].box[0]["bb3"].data
 
@@ -1120,9 +1127,9 @@ class MainWindow(QtWidgets.QMainWindow):
                 data *= const
                 self.unit = "G^2"
             elif self.dataTypeCombo.currentText() == "Vert. magnetic flux Bz*Az":
-                A = np.diff(self.xb1) * np.diff(self.xb2)                        
+                A = np.diff(self.xb1) * np.diff(self.xb2)
                 bb3 = self.modelfile[mod].dataset[dat].box[0]["bb3"].data
-                
+
                 data = ip.interp1d(self.xb3, bb3, axis=0, copy=False, assume_sorted=True)(self.xc3) * A *\
                        math.sqrt(const)
                 self.unit = "G*km^2"
@@ -1238,10 +1245,10 @@ class MainWindow(QtWidgets.QMainWindow):
                 else:
                     dbzdy=sc.Deriv(bc3, self.xc2, self.xb2, 1)
                     dbydz=sc.Deriv(bc2, self.xc3, self.xb3, 0)
-        
+
                     dbxdz=sc.Deriv(bc1, self.xc3, self.xb3, 0)
                     dbzdx=sc.Deriv(bc3, self.xc1, self.xb1)
-        
+
                     dbydx=sc.Deriv(bc2, self.xc1, self.xb1)
                     dbxdy=sc.Deriv(bc1, self.xc2, self.xb2, 1)
 
@@ -1251,7 +1258,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 rho = self.modelfile[mod].dataset[dat].box[0]["rho"].data
                 ei = self.modelfile[mod].dataset[dat].box[0]["ei"].data
 
-                data, self.unit = eosinter.STP(rho, ei, self.eosfile, quantity=self.dataTypeCombo.currentText())
+                data = self.Eos.STP(rho, ei, quantity=self.dataTypeCombo.currentText())
+                self.unit = self.Eos.unit(quantity=self.dataTypeCombo.currentText())
             elif self.dataTypeCombo.currentText() == "Plasma beta":
                 bb1 = self.modelfile[mod].dataset[dat].box[0]["bb1"].data
                 bb2 = self.modelfile[mod].dataset[dat].box[0]["bb2"].data
@@ -1264,7 +1272,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 rho = self.modelfile[mod].dataset[dat].box[0]["rho"].data
                 ei = self.modelfile[mod].dataset[dat].box[0]["ei"].data
 
-                P = eosinter.STP(rho, ei, self.eosfile)[0]
+                P = self.Eos.STP(rho, ei)
 
                 data = ne.evaluate("2.0*P/(bc1**2+bc2**2+bc3**2)")
                 self.unit = ""
@@ -1272,7 +1280,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 rho = self.modelfile[mod].dataset[dat].box[0]["rho"].data
                 ei = self.modelfile[mod].dataset[dat].box[0]["ei"].data
 
-                P, dPdrho, dPde = eosinter.Pall(rho, ei, self.eosfile)
+                P, dPdrho, dPde = self.Eos.Pall(rho, ei)
 
                 data = ne.evaluate("sqrt(P*dPde/(rho**2.0)+dPdrho)")
                 self.unit = "cm/s"
@@ -1280,7 +1288,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 rho = self.modelfile[mod].dataset[dat].box[0]["rho"].data
                 ei = self.modelfile[mod].dataset[dat].box[0]["ei"].data
 
-                P, dPdrho, dPde = eosinter.Pall(rho, ei, self.eosfile)
+                P, dPdrho, dPde = self.Eos.Pall(rho, ei)
 
                 bb1 = self.modelfile[mod].dataset[dat].box[0]["bb1"].data
                 bb2 = self.modelfile[mod].dataset[dat].box[0]["bb2"].data
@@ -1296,7 +1304,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 rho = self.modelfile[mod].dataset[dat].box[0]["rho"].data
                 ei = self.modelfile[mod].dataset[dat].box[0]["ei"].data
 
-                P, T = eosinter.PandT(rho, ei, self.eosfile)
+                P, T = self.Eos.PandT(rho, ei)
                 R = 8.314e7
 
                 data = ne.evaluate("R*rho*T/P")
@@ -1306,7 +1314,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 rho = self.modelfile[mod].dataset[dat].box[0]["rho"].data
                 ei = self.modelfile[mod].dataset[dat].box[0]["ei"].data
 
-                P, dPdrho, dPde = eosinter.Pall(rho, ei, self.eosfile)
+                P, dPdrho, dPde = self.Eos.Pall(rho, ei)
 
                 v1 = self.modelfile[mod].dataset[dat].box[0]["v1"].data
                 v2 = self.modelfile[mod].dataset[dat].box[0]["v2"].data
@@ -1318,7 +1326,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 rho = self.modelfile[mod].dataset[dat].box[0]["rho"].data
                 ei = self.modelfile[mod].dataset[dat].box[0]["ei"].data
 
-                P, dPdrho, dPde = eosinter.Pall(rho, ei, self.eosfile)
+                P, dPdrho, dPde = self.Eos.Pall(rho, ei)
 
                 data = ne.evaluate("dPdrho*rho/P+dPde/rho")
                 self.unit = ""
@@ -1326,7 +1334,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 rho = self.modelfile[mod].dataset[dat].box[0]["rho"].data
                 ei = self.modelfile[mod].dataset[dat].box[0]["ei"].data
 
-                P, dPdrho, dPde = eosinter.Pall(rho, ei, self.eosfile)
+                P, dPdrho, dPde = self.Eos.Pall(rho, ei)
 
                 data = ne.evaluate("dPde/rho+1.0")
                 self.unit = ""
@@ -1334,35 +1342,31 @@ class MainWindow(QtWidgets.QMainWindow):
                 rho = self.modelfile[mod].dataset[dat].box[0]["rho"].data
                 ei = self.modelfile[mod].dataset[dat].box[0]["ei"].data
 
-                P, T = eosinter.PandT(rho, ei, self.eosfile)
+                P, T = self.Eos.PandT(rho, ei)
+                data = self.Opa.kappa(T, P)
 
-                data = 10**ip.RectBivariateSpline(self.opatemp, self.opapress, self.opacity[0], kx=2,
-                                                       ky=2).ev(T, P)
                 self.unit = "1/cm"
             elif self.dataTypeCombo.currentText() == "Optical depth":
                 rho = self.modelfile[mod].dataset[dat].box[0]["rho"].data
                 ei = self.modelfile[mod].dataset[dat].box[0]["ei"].data
-                xc3 = self.modelfile[mod].dataset[dat].box[0]["xc3"].data.squeeze()
 
-                P, T = eosinter.PandT(rho, ei, self.eosfile)
+                P, T = self.Eos.PandT(rho, ei)
 
-                op = ip.RectBivariateSpline(self.opatemp, self.opapress, self.opacity[0], kx=2, ky=2).ev(T, P)
-                oprho = ne.evaluate('rho*10**op')
-                init = -oprho[-1].mean()
-                data = integ.cumtrapz(oprho[::-1],xc3, axis=0, initial=init)[::-1]
+                data = self.Opa.tau(rho, self.xc3*1.e5, axis=0, T=T, P=P, zb=self.xb3*1.e5)
+
                 self.unit = "1/cm"
             else:
                 data = self.modelfile[mod].dataset[dat].box[self.boxind][self.typeind].data
                 self.unit = self.modelfile[mod].dataset[dat].box[self.boxind][self.typeind].\
                     params["u"]
-        else: 
+        else:
             data = self.modelfile[mod].dataset[dat].box[self.boxind][self.typeind].data
             self.unit = self.modelfile[mod].dataset[dat].box[self.boxind][self.typeind].\
                 params["u"]
         QtWidgets.QApplication.restoreOverrideCursor()
         text = "time needed for evaluation: {0:5.3g} s".format(time.time()-start)
         self.statusBar().showMessage(text)
-        return data
+        return ne.evaluate(self.postmath[self.mathCombo.currentText()], local_dict={'data': data})
 
 
     def planeCheck(self):
@@ -1425,6 +1429,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.colorbar.set_cmap(self.cmCombo.currentText())
         self.colorbar.draw_all()
         self.colorcanvas.draw()
+
+    def mathComboChange(self):
+        self.data = self.setPlotData(self.modelind, self.dsind)
+        self.planeCheck()
 
     def SliderChange(self):
         sender = self.sender()
@@ -1529,7 +1537,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     print("in")
                     sc.PlotWidget.lP(event.xdata, event.ydata, self.x1min, self.x1max, self.x2min, self.x2max)
                     print("in after")
-                print("out")               
+                print("out")
                 self.x1Slider.setValue(idx)
                 self.x2Slider.setValue(idy)
 
@@ -1552,7 +1560,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 self.x2Slider.setValue(idy)
                 self.x3Slider.setValue(idz)
-    
+
     def normChange(self):
         if self.planeCombo.currentText() == "xy":
             self.normMeanLabel.setText("{dat:13.4g}".format(dat=self.data[self.x3ind].mean()))
@@ -1665,7 +1673,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.typeind = self.dataTypeList[self.boxind][self.\
                                          dataTypeCombo.currentText()]
-        
+
         # ---------------------------------------------------------------------
         # --- get new globally minimal and maximal values for normalization ---
 
