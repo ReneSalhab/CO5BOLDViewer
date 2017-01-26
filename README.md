@@ -61,7 +61,7 @@
         - better performance for most functions
         - less memory consumption when computing temperature, pressure and entropy
 
-       The quantities will still be available, if eosinterx.pyx is not compiled, but opacoity and optical depth
+       The quantities will still be available, if eosinterx.pyx is not compiled, but opacity and optical depth
        are not computed accurately, yet. Also the memory usage is much worse.
 
     # Change-Log
