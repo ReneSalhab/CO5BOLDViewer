@@ -66,7 +66,7 @@
 
     # Change-Log
 
-      ## Verion 0.8:
+      ## Version 0.8:
 
         - computing-option imlemented
         - eosinter changed to class (EosInter)
