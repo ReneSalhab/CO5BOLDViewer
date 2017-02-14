@@ -253,11 +253,12 @@ class MainWindow(QtWidgets.QMainWindow):
                                       "Vert. mass flux (Rho*V3)": "massfl", "Magnetic field Bx": "bc1",
                                       "Magnetic field By": "bc2", "Magnetic field Bz": "bc3",
                                       "Magnetic field Bh (horizontal)": "bh", "Magnetic f.abs.|B|, unsigned": "absb",
-                                      "Magnetic field B^2, signed": "bsq", "Vert. magnetic flux Bz*Az":"bfl",
-                                      "Vert. magnetic gradient Bz/dz": "bgrad", "Magnetic energy": "bener",
-                                      "Magnetic potential Phi": "phi", "Electric current density jx": "jx",
-                                      "Electric current density jy": "jy", "Electric current density jz": "jz",
-                                      "Electric current density |j|": "jabs", "Alfven speed": "ca"})
+                                      "Magnetic field B^2, signed": "bsq", "Vert. magnetic flux Bz*Az": "bfl",
+                                      "Divergence of B": "divB", "Vert. magnetic gradient Bz/dz": "bgrad",
+                                      "Magnetic energy": "bener", "Magnetic potential Phi": "phi",
+                                      "Electric current density jx": "jx", "Electric current density jy": "jy",
+                                      "Electric current density jz": "jz", "Electric current density |j|": "jabs",
+                                      "Alfven speed": "ca"})
             else:
                 self.msgBox.setText("Data format unknown.")
                 self.msgBox.exec_()
@@ -455,9 +456,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.planeCombo.setDisabled(True)
         self.planeCombo.activated.connect(self.planeCheck)
         self.planeCombo.setObjectName("plane-Combo")
-        self.planeCombo.addItem("xy")
-        self.planeCombo.addItem("xz")
-        self.planeCombo.addItem("yz")
+        self.planeCombo.addItems(["xy", "xz", "yz"])
 
         # --- Cross-hair activation components ---
 
@@ -1134,7 +1133,7 @@ class MainWindow(QtWidgets.QMainWindow):
                        math.sqrt(const)
                 self.unit = "G*km^2"
             elif self.dataTypeCombo.currentText() == "Vert. magnetic gradient Bz/dz":
-                x3 = self.modelfile[0].dataset[0].box[0]["xb3"].data.squeeze()*1.e-5
+                x3 = self.modelfile[0].dataset[0].box[0]["xb3"].data.squeeze() * 1.e-5
                 bb3 = self.modelfile[mod].dataset[dat].box[0]["bb3"].data
                 dz = np.diff(x3)
 
@@ -1151,6 +1150,27 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 data = ne.evaluate("(bc1**2+bc2**2+bc3**2)/2")
                 self.unit = "G^2"
+            elif self.dataTypeCombo.currentText() == "Divergence of B":
+                bb1 = self.modelfile[mod].dataset[dat].box[0]["bb1"].data
+                bb2 = self.modelfile[mod].dataset[dat].box[0]["bb2"].data
+                bb3 = self.modelfile[mod].dataset[dat].box[0]["bb3"].data
+
+                bc1 = ip.interp1d(self.xb1, bb1, copy=False, assume_sorted=True)(self.xc1)
+                bc2 = ip.interp1d(self.xb2, bb2, axis=1, copy=False, assume_sorted=True)(self.xc2)
+                bc3 = ip.interp1d(self.xb3, bb3, axis=0, copy=False, assume_sorted=True)(self.xc3)
+
+                if ver > '1.11.0':
+                    dbxdx = np.gradient(bc1, self.dx, axis=-1)
+                    dbydy = np.gradient(bc2, self.dy, axis=1)
+                    dbzdz = np.gradient(bc3, self.dz, axis=0)
+                else:
+                    _, _, dbxdx = np.gradient(bc1, self.dz, self.dy, self.dx)
+                    _, dbydy, _ = np.gradient(bc2, self.dz, self.dy, self.dx)
+                    dbzdz, _, _ = np.gradient(bc3, self.dz, self.dy, self.dx)
+
+                data = ne.evaluate("(dbxdx + dbydy + dbzdz) * sqrt(const)")
+                self.unit = "G/km"
+
             elif self.dataTypeCombo.currentText() == "Alfven speed":
                 rho = self.modelfile[mod].dataset[dat].box[0]["rho"].data
 
