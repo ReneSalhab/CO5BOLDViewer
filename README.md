@@ -53,7 +53,7 @@
 
         bash& python setup.py build_ext --inplace
 
-      Ipython won´t work!
+      ipython won´t work for compilation.
 
       ## Benefits:
 
@@ -65,10 +65,16 @@
        are not computed accurately, yet. Also the memory usage is much worse.
 
     # Change-Log
+    
+      ## Version 0.8.1:
+   
+        - changed EOS-based computations from double to single precision (closed memory leak)
+        - enhanced speed of opacity computation
+        - introduced computation of divergence of magnetic field for test-purpose
 
       ## Version 0.8:
 
-        - computing-option imlemented
+        - computing-option implemented
         - eosinter changed to class (EosInter)
         - par-file reader introduced (not implemented, yet)
         - Opac-class introduced. Replaces numpy-functions within setPlotData in rootelements.py
@@ -76,3 +82,6 @@
         - cython-code for EosInter and Opac introduced. Compilation needed and highly recommended.
         - minor bugs fixed
 
+    # Outlook
+    
+        - in the next version (0.8.2) compilation of eosinterx.pyx will be mandatory
