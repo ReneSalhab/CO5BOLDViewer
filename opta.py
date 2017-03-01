@@ -72,11 +72,13 @@ class Opac:
         self.tabT = np.array([item for sublist in temptb for item in sublist if item != '']).astype(np.float32)
         self.tabTBN = np.array([item for sublist in tabtbn for item in sublist if item != '']).astype(np.float32)
         self.idxTBN = np.array([item for sublist in idxtbn for item in sublist if item != '']).astype(np.int32)
+        self.idxTBN -= 1
         self.tabDTB = np.array([item for sublist in tabdtb for item in sublist if item != '']).astype(np.float32)
 
         self.tabP = np.array([item for sublist in presstb for item in sublist if item != '']).astype(np.float32)
         self.tabPBN = np.array([item for sublist in tabpbn for item in sublist if item != '']).astype(np.float32)
         self.idxPBN = np.array([item for sublist in idxpbn for item in sublist if item != '']).astype(np.int32)
+        self.idxPBN -= 1
         self.tabDPB = np.array([item for sublist in tabdpb for item in sublist if item != '']).astype(np.float32)
 
         tabKap = np.array([a.strip() for sublist in tabKap for a in sublist if a != '']).astype(np.float32)
@@ -147,30 +149,27 @@ class Opac:
                     >>> [...]                       # rho, z, T and P are prepared
                     >>> kappa = opa.kappa(T, P[, iBand=1])
                 """
-        if eosx_available:
-            log10P = ne.evaluate("log10(P)")
-            del P
-            log10T = ne.evaluate("log10(T)")
-            del T
-            if log10T.ndim == 3:
-                return ne.evaluate("10**kap",
-                                   local_dict={'kap': eosx.logPT2kappa3D(log10P, log10T, self.tabP, self.tabT,
-                                                                         self.tabKap, self.tabTBN, self.tabDTB,
-                                                                         self.idxTBN, self.tabPBN, self.tabDPB,
-                                                                         self.idxPBN, iBand)})
-            elif log10T.ndim == 4:
-                return ne.evaluate("10**kap",
-                                   local_dict={'kap': eosx.logPT2kappa4D(log10P, log10T, self.tabP, self.tabT,
-                                                                         self.tabKap, self.tabTBN, self.tabDTB,
-                                                                         self.idxTBN, self.tabPBN, self.tabDPB,
-                                                                         self.idxPBN, iBand)})
-        logP = ne.evaluate("log10(P)")
-        logT = ne.evaluate("log10(T)")
-        kap = ip.RectBivariateSpline(self.tabT, self.tabP, self.tabKap[:, :, iBand], kx=2, ky=2).ev(logT, logP)
+        if not eosx_available:
+            raise IOError("Compilation of eosinterx.pyx necessary.")
+        log10P = ne.evaluate("log10(P)")
+        log10T = ne.evaluate("log10(T)")
 
-        return ne.evaluate("10**kap")
+        if T.ndim == 3:
+            return ne.evaluate("10**kap",
+                               local_dict={'kap': eosx.logPT2kappa3D(log10P, log10T, self.tabP, self.tabT,
+                                                                     self.tabKap, self.tabTBN, self.tabDTB,
+                                                                     self.idxTBN, self.tabPBN, self.tabDPB,
+                                                                     self.idxPBN, iBand)})
+        elif T.ndim == 4:
+            return ne.evaluate("10**kap",
+                               local_dict={'kap': eosx.logPT2kappa4D(log10P, log10T, self.tabP, self.tabT,
+                                                                     self.tabKap, self.tabTBN, self.tabDTB,
+                                                                     self.idxTBN, self.tabPBN, self.tabDPB,
+                                                                     self.idxPBN, iBand)})
+        else:
+            raise ValueError("Wrong dimension. Only 3D- and 4D-arrays supported.")
 
-    def tau(self, rho, z, axis=-1, mode=0, **kwargs):
+    def tau(self, rho, z, axis=-1, **kwargs):
         """
             Description
             -----------
@@ -230,6 +229,8 @@ class Opac:
                     >>> kappa = opa.kappa(T, P[, iBand=1])
                     >>> tau = opa.tau(rho, z[, axis=1[, iBand=1]], kappa=kappa)   # computes and returns tau.
         """
+        if not eosx_available:
+            raise IOError("Compilation of eosinterx.pyx necessary.")
         if 'kappa' in kwargs:
             kaprho = ne.evaluate("kappa*rho", local_dict={'rho': rho, 'kappa': kwargs['kappa']})
         elif 'T' in kwargs and 'P' in kwargs:
@@ -255,59 +256,18 @@ class Opac:
             radHtautop = np.float32(-1.0)
 
         dim = rho.ndim
-        if mode == 0:
-            if eosx_available:
-                trans = list(range(dim))
-                trans[-1], trans[axis] = trans[axis], trans[-1]
-                kaprho = np.transpose(kaprho, axes=trans)
-                dz = dz
 
-                if dim == 3:
-                    return np.transpose(eosx.tau3D(kaprho, dz, radHtautop), axes=trans)
-                elif dim == 4:
-                    return np.transpose(eosx.tau4D(kaprho, dz, radHtautop), axes=trans)
-            kaprho = np.transpose(kaprho, axes=trans)
-            ind3 = self._get_ind(axis, dim, cut=-1)
-            dz = dz[self._get_ind(axis, dim, expand=True)]
-            tau = np.empty(rho.shape)
-            dxds = np.empty(rho.shape)
-            dkds = np.empty(rho.shape)
-            tau[ind3] = kaprho[ind3] * radHtautop
+        trans = list(range(dim))
+        trans[-1], trans[axis] = trans[axis], trans[-1]
+        kaprho = np.transpose(kaprho, axes=trans)
+        dz = dz
 
-            # Top
-            ind = self._get_ind(axis, dim, start=1)
-            ind2 = self._get_ind(axis, dim, stop=-1)
-            dkds[ind2] = -(kaprho[ind] - kaprho[ind2]) / dz[ind]
-
-            ind = self._get_ind(axis, dim, cut=-2)
-            ind2 = self._get_ind(axis, dim, cut=-3)
-            s3 = (dkds[ind] * dz[ind2] + dkds[ind2] * dz[ind]) / (2 * (dz[ind] + dz[ind2]))
-            s4 = np.minimum(s3, dkds[ind], dkds[ind2])
-            s5 = np.maximum(s3, dkds[ind], dkds[ind2])
-            dxds[ind3] = 1.5 * dkds[ind] - (np.select([s4 <= 0, s4 > 0], [0, s4]) + np.select([s5 <= 0, s5 > 0], [s5, 0]))
-
-            # Interior
-            ind = self._get_ind(axis, dim, start=-2, stop=0, step=-1)
-            ind2 = self._get_ind(axis, dim, start=-3, step=-1)
-            s3 = (dkds[ind] * dz[ind2] + dkds[ind2] * dz[ind]) / (2 * (dz[ind] + dz[ind2]))
-            s4 = np.minimum(s3, dkds[ind], dkds[ind2])
-            s5 = np.maximum(s3, dkds[ind], dkds[ind2])
-            dxds[ind] = 2.0 * (np.select([s4 <= 0, s4 > 0], [0, s4]) + np.select([s5 <= 0, s5 > 0], [s5, 0]))
-
-            # Bottom
-            ind = self._get_ind(axis, dim, cut=0)
-            ind2 = self._get_ind(axis, dim, cut=1)
-            dxds[ind] = 1.5 * dkds[ind] - 0.5 * dxds[ind2]
-
-            ind = self._get_ind(axis, dim, start=-2, step=-1)
-            ind2 = self._get_ind(axis, dim, stop=0, step=-1)
-            tau[ind] = tau[ind2] + dz[ind] * (0.5 * (kaprho[ind2] + kaprho[ind]) + dz[ind] * (dxds[ind2] - dxds[ind]) /
-                                                                                              12.0)
-            return tau
+        if dim == 3:
+            return np.transpose(eosx.tau3D(kaprho, dz, radHtautop), axes=trans)
+        elif dim == 4:
+            return np.transpose(eosx.tau4D(kaprho, dz, radHtautop), axes=trans)
         else:
-            init = radHtautop * kaprho[-1].min()
-            ind = self._get_ind(axis, dim, step=-1)
-            return integ.cumtrapz(kaprho[ind], z, axis=axis, initial=init)[ind]
+            raise ValueError("Wrong dimension. Only 3D- and 4D-arrays supported.")
 
     def height(self, z, value=1.0, axis=-1, **kwargs):
         """
@@ -515,11 +475,12 @@ class Opac:
             quant = np.transpose(quant, axes=trans)
             if dim == 3:
                 if type(new_tau) == np.ndarray:
+                    new_tau = new_tau.astype(np.float32)
                     if new_tau.ndim == 1:
                         if np.all(np.diff(new_tau) > 0):
                             new_tau = new_tau[::-1]
-                            inv = True
-                            return np.transpose(eosx.cubeinterp3dvec(kwargs['tau'], quant, new_tau)[::-1], axes=trans)
+                            return np.transpose(eosx.cubeinterp3dvec(kwargs['tau'], quant, new_tau)[:, :, ::-1],
+                                                axes=trans)
                         return np.transpose(eosx.cubeinterp3dvec(kwargs['tau'], quant, new_tau), axes=trans)
                     elif new_tau.ndim == 2:
                         if axis == 0:
@@ -537,17 +498,20 @@ class Opac:
                     else:
                         raise ValueError("new_tau has wrong dimension. new_tau.ndim must be 1, 2, or 3")
                 else:
+                    new_tau = np.float32(new_tau)
                     if axis == 0:
                         trans = [1, 0]
                     else:
                         trans = [0, 1]
-                    return np.transpose(eosx.cubeinterp3dval(kwargs['tau'], quant, np.float64(new_tau)), axes=trans)
+                    return np.transpose(eosx.cubeinterp3dval(kwargs['tau'], quant, new_tau), axes=trans)
             elif dim == 4:
                 if type(new_tau) == np.ndarray:
+                    new_tau = new_tau.astype(np.float32)
                     if new_tau.ndim == 1:
                         if np.all(np.diff(new_tau) > 0):
                             new_tau = new_tau[::-1]
-                            return np.transpose(eosx.cubeinterp4dvec(kwargs['tau'], quant, new_tau)[::-1], axes=trans)
+                            return np.transpose(eosx.cubeinterp4dvec(kwargs['tau'], quant, new_tau)[:, :, :, ::-1],
+                                                axes=trans)
                         return np.transpose(eosx.cubeinterp4dvec(kwargs['tau'], quant, new_tau), axes=trans)
                     elif new_tau.ndim == 3:
                         if axis == 1:
@@ -567,6 +531,7 @@ class Opac:
                     else:
                         raise ValueError("new_tau has wrong dimension. new_tau.ndim must be 1, 3, or 4")
                 else:
+                    new_tau = np.float32(new_tau)
                     if axis == 1:
                         trans = [0, 2, 1]
                     elif axis == 0:

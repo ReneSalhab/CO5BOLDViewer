@@ -392,7 +392,7 @@ cpdef logPT2kappa3D(np.ndarray[DTYPEf_t, ndim=3] log10P, np.ndarray[DTYPEf_t, nd
                     np.ndarray[DTYPEf_t, ndim=3] tabKap, np.ndarray[DTYPEf_t, ndim=1] tabTBN,
                     np.ndarray[DTYPEf_t, ndim=1] tabDTB, np.ndarray[DTYPE_t, ndim=1] idxTBN,
                     np.ndarray[DTYPEf_t, ndim=1] tabPBN, np.ndarray[DTYPEf_t, ndim=1] tabDPB,
-                    np.ndarray[DTYPE_t, ndim=1] idxPBN, int iband):
+                    np.ndarray[DTYPE_t, ndim=1] idxPBN, DTYPE_t iband):
     cdef int i, j, k, iTx, iPx, nTx, nPx
     cdef int nx = log10T.shape[0]
     cdef int ny = log10T.shape[1]
@@ -401,14 +401,12 @@ cpdef logPT2kappa3D(np.ndarray[DTYPEf_t, ndim=3] log10P, np.ndarray[DTYPEf_t, nd
     cdef int NP = tabP.size
     cdef DTYPEf_t Tx, Px, gT1, gT2, gT3, gT4, gP1, gP2, gP3, gP4, fP1, fP2, fP3, fP4
     cdef np.ndarray[DTYPEf_t, ndim=3] xkaros = np.empty((nx, ny, nz), dtype=DTYPEf)
-    idxTBN -= 1
-    idxPBN -= 1
 
     for i in range(nx):
         for j in range(ny):
             for k in range(nz):
-                Tx = float_min(tabT[NT-2], float_max(tabT[1], log10T[i,j,k]))
-                Px = float_min(tabP[NP-2], float_max(tabP[1], log10P[i,j,k]))
+                Tx = float_min(tabT[NT - 2], float_max(tabT[1], log10T[i, j, k]))
+                Px = float_min(tabP[NP - 2], float_max(tabP[1], log10P[i, j, k]))
 
                 if Tx < tabTBN[1]:
                     nTx = int((Tx - tabTBN[0]) / tabDTB[0]) + idxTBN[0]
@@ -479,7 +477,7 @@ cpdef logPT2kappa4D(np.ndarray[DTYPEf_t, ndim=4] log10P, np.ndarray[DTYPEf_t, nd
                     np.ndarray[DTYPEf_t, ndim=3] tabKap, np.ndarray[DTYPEf_t, ndim=1] tabTBN,
                     np.ndarray[DTYPEf_t, ndim=1] tabDTB, np.ndarray[DTYPE_t, ndim=1] idxTBN,
                     np.ndarray[DTYPEf_t, ndim=1] tabPBN, np.ndarray[DTYPEf_t, ndim=1] tabDPB,
-                    np.ndarray[DTYPE_t, ndim=1] idxPBN, int iband):
+                    np.ndarray[DTYPE_t, ndim=1] idxPBN, DTYPE_t iband):
     cdef int i, j, k, l, iTx, iPx, nTx, nPx
     cdef int nt = log10T.shape[0]
     cdef int nx = log10T.shape[1]
@@ -489,15 +487,13 @@ cpdef logPT2kappa4D(np.ndarray[DTYPEf_t, ndim=4] log10P, np.ndarray[DTYPEf_t, nd
     cdef int NP = tabP.size
     cdef DTYPEf_t Tx, Px, gT1, gT2, gT3, gT4, gP1, gP2, gP3, gP4, fP1, fP2, fP3, fP4
     cdef np.ndarray[DTYPEf_t, ndim=4] xkaros = np.empty((nt, nx, ny, nz), dtype=DTYPEf)
-    idxTBN -= 1
-    idxPBN -= 1
 
     for i in range(nt):
         for j in range(nx):
             for k in range(ny):
                 for l in range(nz):
                     Tx = float_min(tabT[NT-2], float_max(tabT[1], log10T[i, j, k, l]))
-                    Px = float_min(tabP[NP-2], float_max(tabP[1], log10P[i,j,k,l]))
+                    Px = float_min(tabP[NP-2], float_max(tabP[1], log10P[i, j, k, l]))
 
                     if Tx < tabTBN[1]:
                         nTx = int((Tx - tabTBN[0]) / tabDTB[0]) + idxTBN[0]
@@ -595,7 +591,7 @@ cpdef tau3D(np.ndarray[DTYPEf_t, ndim=3] kaprho, np.ndarray[DTYPEf_t, ndim=1] dz
                 s3 = (dkds[k] * dz[kt] + dkds[kt] * dz[k]) / (2.0 * (dz[k] + dz[kt]))
                 s4 = float_min(float_min(s3, dkds[k]), dkds[kt])
                 s5 = float_max(float_max(s3, dkds[k]), dkds[kt])
-                dxds[k] = 2.0 * (float_max(s4, 0.0 ) + float_min(s5, 0.0))
+                dxds[k] = 2.0 * (float_max(s4, 0.0) + float_min(s5, 0.0))
 
             dxds[0] = 1.5 * dkds[0] - 0.5 * dxds[1]
 
@@ -642,7 +638,7 @@ cpdef tau4D(np.ndarray[DTYPEf_t, ndim=4] kaprho, np.ndarray[DTYPEf_t, ndim=1] dz
                     s3 = (dkds[l] * dz[lt] + dkds[lt] * dz[l]) / (2.0 * (dz[l] + dz[lt]))
                     s4 = float_min(float_min(s3, dkds[l]), dkds[lt])
                     s5 = float_max(float_max(s3, dkds[l]), dkds[lt])
-                    dxds[l] = 2.0 * (float_max(s4, 0.0 ) + float_min(s5, 0.0))
+                    dxds[l] = 2.0 * (float_max(s4, 0.0) + float_min(s5, 0.0))
 
                 dxds[0] = 1.5 * dkds[0] - 0.5 * dxds[1]
 
@@ -814,8 +810,8 @@ cpdef interp3d(np.ndarray[DTYPEf_t, ndim=1] x, np.ndarray[DTYPEf_t, ndim=3] y,
     cdef int i, j, k
     cdef np.ndarray[DTYPEf_t, ndim=2] new_y = np.zeros((nx, ny), dtype=DTYPEf)
 
-    for i in range(nx):
-    # for i in prange(nx, nogil=True):
+    # for i in range(nx):
+    for i in prange(nx, nogil=True):
         for j in range(ny):
             for k in range(1, nz):
                  if x[k] < new_x[i, j]:
@@ -900,8 +896,8 @@ cpdef interp3dcube(np.ndarray[DTYPEf_t, ndim=1] x, np.ndarray[DTYPEf_t, ndim=3] 
     cdef int i, j, k, l
     cdef np.ndarray[DTYPEf_t, ndim=3] new_y = np.zeros((nx, ny, nxn), dtype=DTYPEf)
 
-    for i in range(nx):
-    # for i in prange(nx, nogil=True):
+    # for i in range(nx):
+    for i in prange(nx, nogil=True):
         for j in range(ny):
             for l in range(nxn):
                 for k in range(1, nz):
@@ -945,8 +941,8 @@ cpdef interp4dcube(np.ndarray[DTYPEf_t, ndim=1] x, np.ndarray[DTYPEf_t, ndim=4] 
     cdef np.ndarray[DTYPEf_t, ndim=4] new_y = np.zeros((nt, nx, ny, nxn), dtype=DTYPEf)
 
     for i in range(nt):
-        for j in range(nx):
-        # for j in prange(nx, nogil=True):
+        # for j in range(nx):
+        for j in prange(nx, nogil=True):
             for k in range(ny):
                 for m in range(nxn):
                     for l in range(1, nz):
@@ -991,8 +987,8 @@ cpdef cubeinterp3dcube(np.ndarray[DTYPEf_t, ndim=3] x, np.ndarray[DTYPEf_t, ndim
     cdef int i, j, k, l
     cdef np.ndarray[DTYPEf_t, ndim=3] new_y = np.zeros((nx, ny, nxn), dtype=DTYPEf)
 
-    for i in range(nx):
-    # for i in prange(nx, nogil=True):
+    # for i in range(nx):
+    for i in prange(nx, nogil=True):
         for j in range(ny):
             for l in range(nxn):
                 for k in range(1, nz):
@@ -1039,8 +1035,8 @@ cpdef cubeinterp4dcube(np.ndarray[DTYPEf_t, ndim=4] x, np.ndarray[DTYPEf_t, ndim
     cdef np.ndarray[DTYPEf_t, ndim=4] new_y = np.zeros((nt, nx, ny, nxn), dtype=DTYPEf)
 
     for i in range(nt):
-        for j in range(nx):
-        # for j in prange(nx, nogil=True):
+        # for j in range(nx):
+        for j in prange(nx, nogil=True):
             for k in range(ny):
                 for m in range(nxn):
                     for l in range(1, nz):
@@ -1123,8 +1119,8 @@ cpdef cubeinterp4d(np.ndarray[DTYPEf_t, ndim=4] x, np.ndarray[DTYPEf_t, ndim=4] 
     cdef np.ndarray[DTYPEf_t, ndim=3] new_y = np.zeros((nt, nx, ny), dtype=DTYPEf)
 
     for i in range(nt):
-        for j in range(nx):
-        # for j in prange(nx, nogil=True):
+        # for j in range(nx):
+        for j in prange(nx, nogil=True):
             for k in range(ny):
                 for l in range(1, nz):
                      if x[i, j, k, l] < new_x[i, j, k]:
@@ -1209,8 +1205,8 @@ cpdef cubeinterp4dvec(np.ndarray[DTYPEf_t, ndim=4] x, np.ndarray[DTYPEf_t, ndim=
     cdef np.ndarray[DTYPEf_t, ndim=4] new_y = np.zeros((nt, nx, ny, nxn), dtype=DTYPEf)
 
     for i in range(nt):
-        for j in range(nx):
-        # for j in prange(nx, nogil=True):
+        # for j in range(nx):
+        for j in prange(nx, nogil=True):
             for k in range(ny):
                 for m in range(nxn):
                     for l in range(1, nz):
@@ -1251,8 +1247,8 @@ cpdef cubeinterp3dval(np.ndarray[DTYPEf_t, ndim=3] x, np.ndarray[DTYPEf_t, ndim=
     cdef int i, j, k
     cdef np.ndarray[DTYPEf_t, ndim=2] new_y = np.zeros((nx, ny), dtype=DTYPEf)
 
-    for i in range(nx):
-    # for i in prange(nx, nogil=True):
+    # for i in range(nx):
+    for i in prange(nx, nogil=True):
         for j in range(ny):
             for k in range(1, nz):
                  if x[i, j, k] < new_x:
@@ -1290,8 +1286,8 @@ cpdef cubeinterp4dval(np.ndarray[DTYPEf_t, ndim=4] x, np.ndarray[DTYPEf_t, ndim=
     cdef np.ndarray[DTYPEf_t, ndim=3] new_y = np.zeros((nt, nx, ny), dtype=DTYPEf)
 
     for i in range(nt):
-        for j in range(nx):
-        # for j in prange(nx, nogil=True):
+        # for j in range(nx):
+        for j in prange(nx, nogil=True):
             for k in range(ny):
                 for l in range(1, nz):
                      if x[i, j, k, l] < new_x:
