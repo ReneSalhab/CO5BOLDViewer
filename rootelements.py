@@ -30,7 +30,7 @@ from eosinter import EosInter
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
-        self.version = "0.8.1"
+        self.version = "0.8.2"
         super(MainWindow, self).__init__()
 
         self.initUI()
