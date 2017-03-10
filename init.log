@@ -1,4 +1,4 @@
-# Standard locations for models, eos-files and opa-files. Will be opened, if corrsponding loading dialog-box is called.
+# Standard locations for models, eos-files and opa-files. Will be opened, if corresponding loading dialog-box is called.
 
 stdDirMod = E:\Arbeit\scratchy\job_d3gt57g44v100rsn01_400x400x188
 stdDirEOS = N:\Python\Data\eos
