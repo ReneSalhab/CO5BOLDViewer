@@ -2,11 +2,9 @@
 """
 Created on Fri Jun 06 12:09:39 2014
 
-@author: salhab
+@author: René Georg Salhab
 """
 
-from scipy import integrate as integ
-from scipy import interpolate as ip
 import numpy as np
 import numexpr as ne
 import re

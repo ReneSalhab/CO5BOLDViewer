@@ -16,7 +16,7 @@ try:
 except:
     eosx_available = False
 
-import uio_eos as ue
+import uio
 
 print("eosx available (eosinter):", eosx_available)
 
@@ -31,7 +31,7 @@ class EosInter:
                 :param fname: string, path and name of file with eos-related tables.
         """
 
-        eosfile = ue.File(fname)
+        eosfile = uio.File(fname)
 
         self.eosf = eosfile
 
