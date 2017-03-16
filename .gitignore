@@ -1,3 +1,9 @@
 *.xml
 .idea/CO5BOLDViewer.iml
 *.pyc
+eosinterx.c
+*.c
+build/temp.win-amd64-3.5/Release/eosinterx.obj
+*.lib
+build/temp.win-amd64-3.5/Release/eosinterx.cp35-win_amd64.exp
+*.pyd

@@ -36,16 +36,16 @@ class EosInter:
         self.eosf = eosfile
 
         self.cent = eosfile.block[0]['c1'].data.T
-        self.cent = self.cent.newbyteorder()
-        self.cent = self.cent.byteswap()
-
         self.cpress = eosfile.block[0]['c2'].data.T
-        self.cpress = self.cpress.newbyteorder()
-        self.cpress = self.cpress.byteswap()
-
         self.ctemp = eosfile.block[0]['c3'].data.T
-        self.ctemp = self.ctemp.newbyteorder()
-        self.ctemp = self.ctemp.byteswap()
+
+        if self.cent.dtype.byteorder != np.dtype('f').byteorder:
+            self.cent = self.cent.newbyteorder()
+            self.cent = self.cent.byteswap()
+            self.cpress = self.cpress.newbyteorder()
+            self.cpress = self.cpress.byteswap()
+            self.ctemp = self.ctemp.newbyteorder()
+            self.ctemp = self.ctemp.byteswap()
 
         self.lnx11d = np.log(eosfile.block[0]['x1'].data + eosfile.block[0]['x1shift'].data).squeeze()
         self.lnx21d = np.log(eosfile.block[0]['x2'].data + eosfile.block[0]['x2shift'].data).squeeze()

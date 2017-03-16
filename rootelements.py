@@ -77,7 +77,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.time = np.zeros((2, 3))
 
-        # --- position of observer ---
+        # --- position in cube ---
 
         self.x1ind = 0
         self.x2ind = 0
@@ -101,12 +101,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # --- math functions for post-processing data ---
 
-        self.postmath = {'----': "data", 'log': "log(data)", '| |': "abs(data)", 'log(| |)': "log(abs(data))",
-                         'exp': "exp(data)"}
+        self.postmath = {'----': "data", '| |': "abs(data)", 'log': "log(data)", 'log(| |)': "log(abs(data))",
+                         'log10': "log10(data)", 'log10(| |)': "log10(abs(data))", 'exp': "exp(data)"}
 
-        # --- Available Colormaps ---
+        # --- Available Colormaps (handle invert versions with checkbox) ---
 
-        self.cmaps = list(cm.datad.keys())
+        self.cmaps = [ c for c in plt.colormaps() if not c.endswith('_r') ]
         self.cmaps.sort()
 
         # --- Message Box ---
@@ -588,6 +588,23 @@ class MainWindow(QtWidgets.QMainWindow):
         self.cmCombo.setCurrentIndex(self.cmaps.index("jet"))
         self.cmCombo.setObjectName("colormap-Combo")
 
+        # --- default colormap (not available in older matplotlib versions)
+
+        cmi = self.cmaps.index("inferno")
+
+        if cmi < 0:
+            self.cmCombo.setCurrentIndex(self.cmaps.index("jet"))
+        else:
+            self.cmCombo.setCurrentIndex(cmi)
+        self.cmCombo.inv = ""
+        self.cmCombo.currentCmap = self.cmCombo.currentText() + self.cmCombo.inv
+        self.cmCombo.setObjectName("colormap-Combo")
+        self.cmCombo.setObjectName("colormap-Combo")
+
+        self.cmInvert = QtWidgets.QCheckBox("Invert CM")
+        self.cmInvert.setDisabled(True)
+        self.cmInvert.stateChanged.connect(self.invertCM)
+
         # --- Colorbar ---
 
         colorfig = plt.figure()
@@ -661,8 +678,9 @@ class MainWindow(QtWidgets.QMainWindow):
         dataParamsLayout.addWidget(self.mathCombo, 0, 6, 1, 1)
 
         dataParamsLayout.addWidget(colorbarLabel, 1, 0)
-        dataParamsLayout.addWidget(self.colorcanvas, 1, 1, 1, 5)
-        dataParamsLayout.addWidget(self.cmCombo, 1, 6)
+        dataParamsLayout.addWidget(self.colorcanvas, 1, 1, 1, 4)
+        dataParamsLayout.addWidget(self.cmCombo, 1, 5)
+        dataParamsLayout.addWidget(self.cmInvert, 1, 6)
 
         dataParamsLayout.addWidget(normMinTitle, 2, 1)
         dataParamsLayout.addWidget(normMeanTitle, 2, 3)
@@ -882,7 +900,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.currentX3Edit.setText(str(self.x3ind).rjust(10))
         self.actualX3Label.setText("{:13.1f}".format(self.xc3[self.x3ind]).rjust(13))
 
-        self.colorbar.set_cmap(self.cmCombo.currentText())
+        self.colorbar.set_cmap(self.cmCombo.currentCmap)
         self.colorbar.draw_all()
         self.colorcanvas.draw()
 
@@ -969,6 +987,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.unitLabel.setText(self.unit)
         if self.normCheck.checkState() == QtCore.Qt.Checked:
             self.getTotalMinMax()
+
+        self.cmInvert.setDisabled(False)
+
+        if self.cmInvert.checkState() == QtCore.Qt.Checked:
+            self.invertCM(True)
+        else:
+            self.invertCM(False)
+
         self.planeCheck()
         print("Time needed for initial load:", time.time()-start)
 
@@ -1011,6 +1037,19 @@ class MainWindow(QtWidgets.QMainWindow):
     def normCheckChange(self, state):
         if state == QtCore.Qt.Checked:
             self.getTotalMinMax()
+
+    def invertCM(self, state):
+        if state == QtCore.Qt.Checked:
+            self.cmCombo.inv = "_r"
+
+        else:
+            self.cmCombo.inv = ""
+        self.cmCombo.currentCmap = self.cmCombo.currentText() + self.cmCombo.inv
+        self.plotBox.colorChange(self.cmCombo.currentCmap)
+        self.colorbar.set_cmap(self.cmCombo.currentCmap)
+
+        self.colorbar.draw_all()
+        self.colorcanvas.draw()
 
     def setPlotData(self, mod, dat):
         self.statusBar().showMessage("Initialize arrays...")
@@ -1133,7 +1172,7 @@ class MainWindow(QtWidgets.QMainWindow):
                        math.sqrt(const)
                 self.unit = "G*km^2"
             elif self.dataTypeCombo.currentText() == "Vert. magnetic gradient Bz/dz":
-                x3 = self.modelfile[0].dataset[0].box[0]["xb3"].data.squeeze() * 1.e-5
+                x3 = self.modelfile[0].dataset[0].box[0]["xb3"].data.squeeze()*1.e-5
                 bb3 = self.modelfile[mod].dataset[dat].box[0]["bb3"].data
                 dz = np.diff(x3)
 
@@ -1446,7 +1485,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def cmComboChange(self):
         self.plotBox.colorChange(self.cmCombo.currentText())
 
-        self.colorbar.set_cmap(self.cmCombo.currentText())
+        self.colorbar.set_cmap(self.cmCombo.currentCmap)
         self.colorbar.draw_all()
         self.colorcanvas.draw()
 
@@ -1549,7 +1588,7 @@ class MainWindow(QtWidgets.QMainWindow):
             pass
 
     def dataPlotPress(self, event):
-        if self.dim == 3:
+        if self.dim == 3 and event.xdata is not None and event.ydata is not None:
             if self.planeCombo.currentText() == "xy":
                 idx = (np.abs(self.xc1 - event.xdata)).argmin()
                 idy = (np.abs(self.xc2 - event.ydata)).argmin()
@@ -1806,7 +1845,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 if self.planeCombo.currentText() == "xy":
                     self.plotBox.plotFig(self.data[self.x3ind], self.x1min, self.x1max, self.x2min, self.x2max,
                                          dim=self.dim, vmin=self.minNorm, vmax=self.maxNorm,
-                                         cmap=self.cmCombo.currentText())
+                                         cmap=self.cmCombo.currentCmap)
                     if self.vpCheck.isChecked():
                         self.plotBox.vectorPlot(self.xc1, self.xc2, self.u[self.x3ind, :, :], self.v[self.x3ind],
                                                 xinc=int(self.vpXIncEdit.text()), yinc=int(self.vpYIncEdit.text()),
@@ -1815,7 +1854,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 elif self.planeCombo.currentText() == "xz":
                     self.plotBox.plotFig(self.data[:, self.x2ind, :], self.x1min, self.x1max, self.x3min, self.x3max,
                                          dim=self.dim, vmin=self.minNorm, vmax=self.maxNorm,
-                                         cmap=self.cmCombo.currentText())
+                                         cmap=self.cmCombo.currentCmap)
                     if self.vpCheck.isChecked():
                         self.plotBox.vectorPlot(self.xc1, self.xc3, self.u[:, self.x2ind, :], self.w[:, self.x2ind],
                                                 xinc=int(self.vpXIncEdit.text()), yinc=int(self.vpYIncEdit.text()),
@@ -1824,7 +1863,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 elif self.planeCombo.currentText() == "yz":
                     self.plotBox.plotFig(self.data[:, :, self.x1ind], self.x2min, self.x2max, self.x3min, self.x3max,
                                          dim=self.dim, vmin=self.minNorm, vmax=self.maxNorm,
-                                         cmap=self.cmCombo.currentText())
+                                         cmap=self.cmCombo.currentCmap)
                     if self.vpCheck.isChecked():
                         self.plotBox.vectorPlot(self.xc2, self.xc3, self.v[:, :, self.x1ind], self.w[:, :, self.x1ind],
                                                 xinc = int(self.vpXIncEdit.text()), yinc = int(self.vpYIncEdit.text()),
@@ -1839,13 +1878,13 @@ class MainWindow(QtWidgets.QMainWindow):
         elif self.dim == 2:
             if self.direction == 0:
                 self.plotBox.plotFig(self.data[0], self.x1min, self.x1max, self.x2min, self.x2max, dim=self.dim,
-                                     vmin=self.minNorm, vmax=self.maxNorm, cmap=self.cmCombo.currentText())
+                                     vmin=self.minNorm, vmax=self.maxNorm, cmap=self.cmCombo.currentCmap)
             elif self.direction == 1:
                 self.plotBox.plotFig(self.data[:, 0], self.x1min, self.x1max, self.x3min, self.x3max, dim=self.dim,
-                                     vmin=self.minNorm, vmax=self.maxNorm, cmap=self.cmCombo.currentText())
+                                     vmin=self.minNorm, vmax=self.maxNorm, cmap=self.cmCombo.currentCmap)
             elif self.direction == 2:
                 self.plotBox.plotFig(self.data[:, :, 0], self.x2min, self.x2max, self.x3min, self.x3max, dim=self.dim,
-                                     vmin=self.minNorm, vmax=self.maxNorm, cmap=self.cmCombo.currentText())
+                                     vmin=self.minNorm, vmax=self.maxNorm, cmap=self.cmCombo.currentCmap)
             else:
                 self.msgBox.setText("Direction could not be identified.")
                 self.msgBox.exec_()
@@ -1853,13 +1892,13 @@ class MainWindow(QtWidgets.QMainWindow):
         elif self.dim == 1:
             if self.direction == 0:
                 self.plotBox.plotFig(self.data[:, 0, 0], self.x3min, self.x3max, x2min=np.min(self.data),
-                                     x2max=np.max(self.data), dim=self.dim, cmap=self.cmCombo.currentText())
+                                     x2max=np.max(self.data), dim=self.dim, cmap=self.cmCombo.currentCmap)
             elif self.direction == 1:
                 self.plotBox.plotFig(self.data[0, :, 0], self.x2min, self.x2max, x2min=np.min(self.data),
-                                     x2max=np.max(self.data), dim=self.dim, cmap=self.cmCombo.currentText())
+                                     x2max=np.max(self.data), dim=self.dim, cmap=self.cmCombo.currentCmap)
             elif self.direction == 2:
                 self.plotBox.plotFig(self.data[0, 0], self.x1min, self.x1max, x2min=np.min(self.data),
-                                     x2max=np.max(self.data), dim=self.dim, cmap=self.cmCombo.currentText())
+                                     x2max=np.max(self.data), dim=self.dim, cmap=self.cmCombo.currentCmap)
             else:
                 self.msgBox.setText("Direction could not be identified.")
                 self.msgBox.exec_()
