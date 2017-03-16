@@ -1,4 +1,4 @@
-# CO5BOLDViewer 0.8
+# CO5BOLDViewer 0.8.3
 
 A QT-based viewer of .uio-data used by CO5BOLD. Written in Python 3.5.
 
@@ -55,6 +55,16 @@ or
 will start the CO5BOLDViewer. If something goes wrong, please let me know.
 
 ## Change-Log
+
+### Version 0.8.3
+
+- 10-log and 10-log of absolute value implemented
+- fixed a bug, when loading little-endian eos-files
+- fixed a bug, when clicking outside of plot-area
+- introduced check-box for inverting colormap
+- set default colormap to "inferno"
+
+All changes in this version were provided by Derek Homeier. Thank you on this occasion.
 
 ### Version 0.8.2:
 
