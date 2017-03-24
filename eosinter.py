@@ -51,13 +51,13 @@ class EosInter:
         self.lnx21d = np.log(eosfile.block[0]['x2'].data + eosfile.block[0]['x2shift'].data).squeeze()
         self.x2shift = eosfile.block[0]['x2shift'].data
 
-        n1 = self.lnx11d.size - 1
-        n2 = self.lnx21d.size - 1
+        self.n1 = self.lnx11d.size - 1
+        self.n2 = self.lnx21d.size - 1
 
         self.x1fac = n1 / (self.lnx11d.max() - self.lnx11d.min())
         self.x2fac = n2 / (self.lnx21d.max() - self.lnx21d.min())
 
-    def __prep(self, rho, ei):
+    def _prep(self, rho, ei):
         nx1 = rho.size - 1
         nx2 = rho.size - 2
 
@@ -68,6 +68,9 @@ class EosInter:
                                                                'x1off': self.lnx11d[0]}).astype(np.int32).clip(0, nx1)
         i2 = ne.evaluate("(lnx2 - x2off) * x2fac", local_dict={'lnx2': lnx2}, global_dict={'x2fac': self.x2fac,
                                                                'x2off': self.lnx21d[0]}).astype(np.int32).clip(0, nx2)
+
+        i1 = np.minimum(i1, self.n1)
+        i2 = np.minimum(i2, self.n2)
 
         lnx11d = self.lnx11d[i1]
         lnx21d = self.lnx21d[i2]

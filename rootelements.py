@@ -13,6 +13,7 @@ import math
 import bisect
 import numpy as np
 import numexpr as ne
+from collections import OrderedDict
 from scipy import interpolate as ip
 from PyQt5 import QtCore, QtGui, QtWidgets
 
@@ -30,7 +31,7 @@ from eosinter import EosInter
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
-        self.version = "0.8.3"
+        self.version = "0.8.3.3"
         super(MainWindow, self).__init__()
 
         self.initUI()
@@ -236,35 +237,66 @@ class MainWindow(QtWidgets.QMainWindow):
                 # --- Components depict box number from filestructure (see manual
                 # --- of Co5bold)
 
-                self.dataTypeList = ({"Bolometric intensity": "intb3_r", "Intensity (bin 1)": "int01b3_r",
-                                      "Intensity (bin 2)": "int02b3_r", "Intensity (bin 3)": "int03b3_r",
-                                      "Intensity (bin 4)": "int04b3_r", "Intensity (bin 5)": "int05b3_r"},
-                                     {"Avg. density (x1)": "rho_xmean", "Squared avg. density (x1)": "rho_xmean2"})
+                self.dataTypeList = [OrderedDict([("Bolometric intensity", "intb3_r"),
+                                                  ("Intensity (bin 1)", "int01b3_r"),
+                                                  ("Intensity (bin 2)", "int02b3_r"),
+                                                  ("Intensity (bin 3)", "int03b3_r"),
+                                                  ("Intensity (bin 4)", "int04b3_r"),
+                                                  ("Intensity (bin 5)", "int05b3_r")]),
+                                     OrderedDict([("Avg. density (x1)", "rho_xmean"),
+                                                  ("Squared avg. density (x1)", "rho_xmean2")])]
             elif fil == "Model files (*.full *.end *.sta)":
                 self.meanfile = False
                 # --- content from .full or .end file (has one box per dataset) ---
-                # --- First tuple component: Data from file
-                # --- Second tuple component: Data from post computed arrays
+                # --- First list component: Data from file
+                # --- Second list component: Data from post computed arrays
+                # --- Third list component: Post computed MHD data, if present
 
-                self.dataTypeList = ({"Density": "rho", "Internal energy": "ei", "Velocity x-component": "v1",
-                                      "Velocity y-component": "v2", "Velocity z-component": "v3"},
-                                     {"Velocity, absolute": "vabs", "Velocity, horizontal": "vhor",
-                                      "Kinetic energy": "kinEn", "Momentum": "momentum",
-                                      "Vert. mass flux (Rho*V3)": "massfl", "Magnetic field Bx": "bc1",
-                                      "Magnetic field By": "bc2", "Magnetic field Bz": "bc3",
-                                      "Magnetic field Bh (horizontal)": "bh", "Magnetic f.abs.|B|, unsigned": "absb",
-                                      "Magnetic field B^2, signed": "bsq", "Vert. magnetic flux Bz*Az": "bfl",
-                                      "Divergence of B": "divB", "Vert. magnetic gradient Bz/dz": "bgrad",
-                                      "Magnetic energy": "bener", "Magnetic potential Phi": "phi",
-                                      "Electric current density jx": "jx", "Electric current density jy": "jy",
-                                      "Electric current density jz": "jz", "Electric current density |j|": "jabs",
-                                      "Alfven speed": "ca"})
+                self.dataTypeList = [OrderedDict([("Density", "rho"), ("Internal energy", "ei"),
+                                                  ("Velocity x-component", "v1"), ("Velocity y-component", "v2"),
+                                                  ("Velocity z-component", "v3"), ("Velocity, absolute", "vabs"),
+                                                  ("Velocity, horizontal", "vhor"), ("Kinetic energy", "kinEn"),
+                                                  ("Momentum", "momentum"), ("Vert. mass flux (Rho*V3)", "massfl")])]
+                mhd = False
+                for mod in self.modelfile:
+                    if "bb1" in mod.dataset[0].box[0]:
+                        mhd = True
+                        break
+
+                if mhd:
+                    self.dataTypeList.append(OrderedDict([("Magnetic field Bx", "bc1"), ("Magnetic field By", "bc2"),
+                                                          ("Magnetic field Bz", "bc3"), ("Divergence of B", "divB"),
+                                                          ("Magnetic field Bh (horizontal)", "bh"),
+                                                          ("Magnetic f.abs.|B|, unsigned", "absb"),
+                                                          ("Magnetic field B^2, signed", "bsq"),
+                                                          ("Vert. magnetic flux Bz*Az", "bfl"),
+                                                          ("Vert. magnetic gradient Bz/dz", "bgrad"),
+                                                          ("Magnetic energy", "bener"), ("Magnetic potential Phi", "phi"),
+                                                          ("Alfven speed", "ca"), ("Electric current density jx", "jx"),
+                                                          ("Electric current density jy", "jy"),
+                                                          ("Electric current density jz", "jz"),
+                                                          ("Electric current density |j|", "jabs")]))
+
             else:
                 self.msgBox.setText("Data format unknown.")
                 self.msgBox.exec_()
 
                 for mod in self.modelfile:
                     mod.close()
+
+            # --- Fourth list component: EOS (and opacity) table
+            # interpolated data, if already loaded
+
+            if self.eos:
+                self.dataTypeList.append(OrderedDict([("Temperature", "temp"), ("Entropy", "entr"), ("Pressure", "press"),
+                                                      ("Adiabatic coefficient G1", "gamma1"), ("Mach Number", "mach"),
+                                                      ("Adiabatic coefficient G3", "gamma3"), ("Sound velocity", "c_s"),
+                                                      ("Mean molecular weight", "mu"), ("Plasma beta", "beta"),
+                                                      ("c_s / c_A", "csca")]))
+
+            if self.opa:
+                self.dataTypeList[-1]["Opacity"] = "opa"
+                self.dataTypeList[-1]["Optical depth"] = "optdep"
 
             if not self.modelfile[0].closed:
                 self.dataTypeCombo.clear()
@@ -318,22 +350,19 @@ class MainWindow(QtWidgets.QMainWindow):
 
             self.Eos = EosInter(self.eosname)
 
-            if not self.eos:
-                self.dataTypeList[1]["Temperature"] = "temp"
-                self.dataTypeList[1]["Entropy"] = "entr"
-                self.dataTypeList[1]["Pressure"] = "press"
-                self.dataTypeList[1]["Adiabatic coefficient G1"] = "gamma1"
-                self.dataTypeList[1]["Adiabatic coefficient G3"] = "gamma3"
-                self.dataTypeList[1]["Sound velocity"] = "c_s"
-                self.dataTypeList[1]["Mach Number"] = "mach"
-                self.dataTypeList[1]["Mean molecular weight"] = "mu"
-                self.dataTypeList[1]["Plasma beta"] = "beta"
-                self.dataTypeList[1]["c_s / c_A"] = "csca"
-            if self.opa:
-                self.dataTypeList[1]["Opacity"] = "opa"
-                self.dataTypeList[1]["Optical depth"] = "optdep"
+            # Check if self.dataTypeList exists (model file already loaded?)
 
-            self.dataTypeCombo.addItems(self.dataTypeList[1].keys())
+            if not self.eos and hasattr(self, 'dataTypeList'):
+                self.dataTypeList.append(OrderedDict([("Temperature", "temp"), ("Entropy", "entr"),
+                                                      ("Pressure", "press"), ("Adiabatic coefficient G1", "gamma1"),
+                                                      ("Adiabatic coefficient G3", "gamma3"), ("Sound velocity", "c_s"),
+                                                      ("Mach Number", "mach"), ("Mean molecular weight", "mu"),
+                                                      ("Plasma beta", "beta"), ("c_s / c_A", "csca")]))
+
+            if self.opa:
+                self.dataTypeList[-1]["Opacity"] = "opa"
+                self.dataTypeList[-1]["Optical depth"] = "optdep"
+            self.dataTypeCombo.addItems(self.dataTypeList[-1].keys())
 
             self.eos = True
 
@@ -355,8 +384,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
             self.Opa = Opac(self.opaname)
             if self.eos:
-                self.dataTypeList[1]["Opacity"] = "opa"
-                self.dataTypeList[1]["Optical depth"] = "optdep"
+                self.dataTypeList[-1]["Opacity"] = "opa"
+                self.dataTypeList[-1]["Optical depth"] = "optdep"
 
                 self.dataTypeCombo.addItem("Opacity")
                 self.dataTypeCombo.addItem("Optical depth")
@@ -585,8 +614,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.cmCombo.setDisabled(True)
         self.cmCombo.activated.connect(self.cmComboChange)
         self.cmCombo.addItems(self.cmaps)
-        self.cmCombo.setCurrentIndex(self.cmaps.index("jet"))
-        self.cmCombo.setObjectName("colormap-Combo")
 
         # --- default colormap (not available in older matplotlib versions)
 
@@ -598,7 +625,6 @@ class MainWindow(QtWidgets.QMainWindow):
             self.cmCombo.setCurrentIndex(cmi)
         self.cmCombo.inv = ""
         self.cmCombo.currentCmap = self.cmCombo.currentText() + self.cmCombo.inv
-        self.cmCombo.setObjectName("colormap-Combo")
         self.cmCombo.setObjectName("colormap-Combo")
 
         self.cmInvert = QtWidgets.QCheckBox("Invert CM")
@@ -1413,7 +1439,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 data = self.Opa.tau(rho, self.xc3*1.e5, axis=0, T=T, P=P, zb=self.xb3*1.e5)
 
-                self.unit = "1/cm"
+                self.unit = ""
             else:
                 data = self.modelfile[mod].dataset[dat].box[self.boxind][self.typeind].data
                 self.unit = self.modelfile[mod].dataset[dat].box[self.boxind][self.typeind].\
@@ -1627,8 +1653,20 @@ class MainWindow(QtWidgets.QMainWindow):
             self.normMeanLabel.setText("{dat:13.4g}".format(dat=self.data[:, self.x2ind].mean()))
         elif self.planeCombo.currentText() == "yz":
             self.normMeanLabel.setText("{dat:13.4g}".format(dat=self.data[:, :, self.x1ind].mean()))
-        self.minNorm = float(self.normMinEdit.text())
-        self.maxNorm = float(self.normMaxEdit.text())
+
+        # catch 'nan' in Min/Max fields:
+        try:
+            self.minNorm = float(self.normMinEdit.text())
+            if self.minNorm > self.maxNorm:
+                raise ValueError('minNorm must be <= maxNorm')
+        except ValueError:
+            self.minNorm = np.finfo(np.float32).min
+        try:
+            self.maxNorm = float(self.normMaxEdit.text())
+            if self.minNorm > self.maxNorm:
+                raise ValueError('minNorm must be <= maxNorm')
+        except ValueError:
+            self.maxNorm = np.finfo(np.float32).max
 
         if self.plot:
             self.generalPlotRoutine()

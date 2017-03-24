@@ -166,6 +166,12 @@ class File(_EntryMapping):
                 entries.append(x)
         super(File, self).__init__(entries)
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._fd.close()
+
     def close(self):
         self._fd.close()
 

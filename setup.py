@@ -15,7 +15,7 @@ cmdclass = {"build_ext": build_ext},
 ext_modules = [Extension("eosinterx",
                          ["eosinterx.pyx"],
 					     include_dirs=[np.get_include()],
-					     extra_compile_args=["-ffast-math", "-march=native", "-fopenmp"],
+					     extra_compile_args=["-march=native", "-fopenmp"],
 				    	 extra_link_args=["-fopenmp"]
                         ),
 ])
