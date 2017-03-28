@@ -54,8 +54,8 @@ class EosInter:
         self.n1 = self.lnx11d.size - 1
         self.n2 = self.lnx21d.size - 1
 
-        self.x1fac = n1 / (self.lnx11d.max() - self.lnx11d.min())
-        self.x2fac = n2 / (self.lnx21d.max() - self.lnx21d.min())
+        self.x1fac = self.n1 / (self.lnx11d.max() - self.lnx11d.min())
+        self.x2fac = self.n2 / (self.lnx21d.max() - self.lnx21d.min())
 
     def _prep(self, rho, ei):
         nx1 = rho.size - 1
@@ -125,7 +125,7 @@ class EosInter:
         """
         if not eosx_available:
             raise IOError("Compilation of eosinterx.pyx necessary.")
-        x1ta, x2ta, i1, i2 = self.__prep(rho, ei)
+        x1ta, x2ta, i1, i2 = self._prep(rho, ei)
 
         funcs = {3: eosx.STP3D, 4: eosx.STP4D}
         try:
@@ -163,7 +163,7 @@ class EosInter:
         """
         if not eosx_available:
             raise IOError("Compilation of eosinterx.pyx necessary.")
-        x1ta, x2ta, i1, i2 = self.__prep(rho, ei)
+        x1ta, x2ta, i1, i2 = self._prep(rho, ei)
 
         if rho.ndim == 3:
             return eosx.PandT3D(rho, ei, self.cpress, self.ctemp, i1, i2, x1ta, x2ta)
@@ -189,7 +189,7 @@ class EosInter:
         """
         if not eosx_available:
             raise IOError("Compilation of eosinterx.pyx necessary.")
-        x1ta, x2ta, i1, i2 = self.__prep(rho, ei)
+        x1ta, x2ta, i1, i2 = self._prep(rho, ei)
 
         if rho.ndim == 3:
             return eosx.Pall3D(rho, ei, self.cpress, i1, i2, x1ta, x2ta, self.x2shift)
@@ -214,7 +214,7 @@ class EosInter:
         """
         if not eosx_available:
             raise IOError("Compilation of eosinterx.pyx necessary.")
-        x1ta, x2ta, i1, i2 = self.__prep(rho, ei)
+        x1ta, x2ta, i1, i2 = self._prep(rho, ei)
 
         if rho.ndim == 3:
             return eosx.Tall3D(rho, ei, self.ctemp, i1, i2, x1ta, x2ta, self.x2shift)
