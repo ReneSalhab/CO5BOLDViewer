@@ -102,7 +102,7 @@ class EosInter:
         elif quantity in ["Temperature", "temperature", "T", "t"]:
             unit = self.eosf.block[0]['c3'].params['u']
         else:
-            raise ValueError('{0} is not valid quantity'.format(quantity))
+            raise ValueError('{0} is not a valid quantity'.format(quantity))
         return unit
 
 
