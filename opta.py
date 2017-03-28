@@ -357,9 +357,9 @@ class Opac:
             dz = np.diff(kwargs['zb'])
         else:
             dz = np.diff(z)
-            zb = z - dz/2
-            zb = np.append(zb, zb[-1])
-            zb[-1] += dz/2
+            dz = np.append(dz, dz[-1])/2
+            zb = z - dz
+            zb = np.append(zb, z[-1] + dz[-1])
 
         if 'rho' in kwargs:
             if 'kappa' in kwargs:
@@ -543,10 +543,10 @@ class Opac:
         if 'zb' in kwargs:
             dz = np.diff(kwargs['zb'])
         else:
-            dz = np.diff(z)
-            zb = z - dz/2
-            zb = np.append(zb, zb[-1])
-            zb[-1] += dz/2
+            dz = np.diff(z)/2
+            dz = np.append(dz, dz[-1])
+            zb = z - dz
+            zb = np.append(zb, z[-1] + dz[-1])
 
         if 'rho' in kwargs:
             if 'kappa' in kwargs:
@@ -560,7 +560,7 @@ class Opac:
                 raise ValueError("Either the keyword-argument 'kappa', or 'T' (temperature) and 'P' (pressure) have to"
                                  " be provided.")
         else:
-            raise ValueError("Either the keyword-argument 'tau' and 'rho' has to be provided.")
+            raise ValueError("Either the keyword-argument 'tau' or 'rho' has to be provided.")
 
         dim = kwargs['rho'].ndim
         trans = list(range(dim))
