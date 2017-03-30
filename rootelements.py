@@ -35,6 +35,8 @@ class MainWindow(QtWidgets.QMainWindow):
         super(MainWindow, self).__init__()
 
         self.initUI()
+        self.minNorm = np.finfo(np.float32).min
+        self.maxNorm = np.finfo(np.float32).max
 
     def initUI(self):
 
@@ -86,9 +88,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # --- Axes of plot ---
 
-        self.xc1 = np.linspace(0, 100, num=100)
-        self.xc2 = np.linspace(0, 100, num=100)
-        self.xc3 = np.linspace(0, 100, num=100)
+        self.xc1 = np.linspace(0, 99, num=100)
+        self.xc2 = np.linspace(0, 99, num=100)
+        self.xc3 = np.linspace(0, 99, num=100)
 
         # --- Arbitrary parameters ---
 
@@ -709,14 +711,14 @@ class MainWindow(QtWidgets.QMainWindow):
         dataParamsLayout.addWidget(self.cmInvert, 1, 6)
 
         dataParamsLayout.addWidget(normMinTitle, 2, 1)
-        dataParamsLayout.addWidget(normMeanTitle, 2, 3)
-        dataParamsLayout.addWidget(normMaxTitle, 2, 5)
-        dataParamsLayout.addWidget(unitTitle, 2, 6)
+        dataParamsLayout.addWidget(normMeanTitle, 2, 2)
+        dataParamsLayout.addWidget(normMaxTitle, 2, 4)
+        dataParamsLayout.addWidget(unitTitle, 2, 5)
 
         dataParamsLayout.addWidget(self.normMinEdit, 3, 1)
-        dataParamsLayout.addWidget(self.normMeanLabel, 3, 3)
-        dataParamsLayout.addWidget(self.normMaxEdit,3, 5)
-        dataParamsLayout.addWidget(self.unitLabel,3, 6)
+        dataParamsLayout.addWidget(self.normMeanLabel, 3, 2, 1, 2)
+        dataParamsLayout.addWidget(self.normMaxEdit, 3, 4)
+        dataParamsLayout.addWidget(self.unitLabel, 3, 5)
 
         dataParamsLayout.addWidget(twoDTitle, 4, 0)
         dataParamsLayout.addWidget(self.twoDRadio, 4, 1)

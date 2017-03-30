@@ -1,9 +1,14 @@
-*.xml
-.idea/CO5BOLDViewer.iml
+# Compiled files
+*.py[cod]
 *.pyc
-eosinterx.c
 *.c
-build/temp.win-amd64-3.5/Release/eosinterx.obj
+*.a
+*.so
 *.lib
-build/temp.win-amd64-3.5/Release/eosinterx.cp35-win_amd64.exp
+
+# Other generated files
+.idea/CO5BOLDViewer.iml
+*.xml
+*.obj
 *.pyd
+*.exp
