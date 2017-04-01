@@ -121,12 +121,8 @@ class Opac:
             Notes
             -----
                 When opta is imported, it checks, if the compiled functions for computing opacity and optical depth are
-                available. The availability is printed into the console ("eosx is available: True/False").
-
-                If they are available, the computation might be much faster and less memory-consuming.
-
-                If they are not available, numpy functions will be used. The output will ``not`` be extactly like the
-                values internally computed in CO5BOLD!
+                available. The availability is printed into the console ("eosx is available: True/False"). If they are
+                not available, the methods for computing kappa, tau, height and quant_at_tau cannot be used.
 
             Input
             -----
@@ -177,12 +173,8 @@ class Opac:
             Notes
             -----
                 When opta is imported, it checks, if the compiled functions for computing opacity and optical depth are
-                available. The availability is printed into the console ("eosx is available: True/False").
-
-                If they are available, the computation might be much faster and less memory-consuming.
-
-                If they are not available, numpy functions will be used. The output will ``not`` be extactly like the
-                values internally computed in CO5BOLD!
+                available. The availability is printed into the console ("eosx is available: True/False"). If they are
+                not available, the methods for computing kappa, tau, height and quant_at_tau cannot be used.
 
             Input
             -----
@@ -278,12 +270,8 @@ class Opac:
             Notes
             -----
                 When opta is imported, it checks, if the compiled functions for computing opacity and optical depth are
-                available. The availability is printed into the console ("eosx is available: True/False").
-
-                If they are available, the computation might be much faster and less memory-consuming.
-
-                If they are not available, numpy functions will be used. The output will ``not`` be extactly like the
-                values internally computed in CO5BOLD!
+                available. The availability is printed into the console ("eosx is available: True/False"). If they are
+                not available, the methods for computing kappa, tau, height and quant_at_tau cannot be used.
 
             Input
             -----
@@ -409,12 +397,8 @@ class Opac:
             Notes
             -----
                 When opta is imported, it checks, if the compiled functions for computing opacity and optical depth are
-                available. The availability is printed into the console ("eosx is available: True/False").
-
-                If they are available, the computation might be much faster and less memory-consuming.
-
-                If they are not available, numpy functions will be used. The output will ``not`` be extactly like the
-                values internally computed in CO5BOLD!
+                available. The availability is printed into the console ("eosx is available: True/False"). If they are
+                not available, the methods for computing kappa, tau, height and quant_at_tau cannot be used.
 
             Input
             -----
