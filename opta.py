@@ -345,9 +345,9 @@ class Opac:
             dz = np.diff(kwargs['zb'])
         else:
             dz = np.diff(z)
-            dz = np.append(dz, dz[-1])/2
-            zb = z - dz
-            zb = np.append(zb, z[-1] + dz[-1])
+            zb = z - dz/2
+            zb = np.append(zb, zb[-1])
+            zb[-1] += dz/2
 
         if 'rho' in kwargs:
             if 'kappa' in kwargs:
@@ -449,164 +449,97 @@ class Opac:
         if not eosx_available:
             raise ImportError("Compiled functions of eosx not found!")
 
+        if 'zb' not in kwargs:
+            dz = np.diff(z)
+            zb = z - dz/2
+            zb = np.append(zb, zb[-1])
+            zb[-1] += dz/2
+
         if 'tau' in kwargs:
-            dim = kwargs['tau'].ndim
-            trans = list(range(dim))
-            trans[-1], trans[axis] = trans[axis], trans[-1]
-            kwargs['tau'] = np.transpose(kwargs['tau'], axes=trans)
-            quant = np.transpose(quant, axes=trans)
-            if dim == 3:
-                if type(new_tau) == np.ndarray:
-                    new_tau = new_tau.astype(np.float32)
-                    if new_tau.ndim == 1:
-                        if np.all(np.diff(new_tau) > 0):
-                            new_tau = new_tau[::-1]
-                            return np.transpose(eosx.cubeinterp3dvec(kwargs['tau'], quant, new_tau)[:, :, ::-1],
-                                                axes=trans)
-                        return np.transpose(eosx.cubeinterp3dvec(kwargs['tau'], quant, new_tau), axes=trans)
-                    elif new_tau.ndim == 2:
-                        if axis == 0:
-                            trans = [1, 0]
-                        else:
-                            trans = [0, 1]
-                        return np.transpose(eosx.cubeinterp3d(kwargs['tau'], quant, new_tau), axes=trans)
-                    elif new_tau.ndim == 3:
-                        new_tau = np.transpose(new_tau, axes=trans)
-                        if np.all(np.diff(new_tau, axis=-1) > 0):
-                            new_tau = new_tau[:, :, ::-1]
-                            return np.transpose(eosx.cubeinterp3dcube(kwargs['tau'], quant, new_tau)[:, :, ::-1],
-                                                axes=trans)
-                        return np.transpose(eosx.cubeinterp3dcube(kwargs['tau'], quant, new_tau), axes=trans)
-                    else:
-                        raise ValueError("new_tau has wrong dimension. new_tau.ndim must be 1, 2, or 3")
-                else:
-                    new_tau = np.float32(new_tau)
-                    if axis == 0:
-                        trans = [1, 0]
-                    else:
-                        trans = [0, 1]
-                    return np.transpose(eosx.cubeinterp3dval(kwargs['tau'], quant, new_tau), axes=trans)
-            elif dim == 4:
-                if type(new_tau) == np.ndarray:
-                    new_tau = new_tau.astype(np.float32)
-                    if new_tau.ndim == 1:
-                        if np.all(np.diff(new_tau) > 0):
-                            new_tau = new_tau[::-1]
-                            return np.transpose(eosx.cubeinterp4dvec(kwargs['tau'], quant, new_tau)[:, :, :, ::-1],
-                                                axes=trans)
-                        return np.transpose(eosx.cubeinterp4dvec(kwargs['tau'], quant, new_tau), axes=trans)
-                    elif new_tau.ndim == 3:
-                        if axis == 1:
-                            trans = [0, 2, 1]
-                        elif axis == 0:
-                            trans = [2, 0, 1]
-                        else:
-                            trans = [0, 1, 2]
-                        return np.transpose(eosx.cubeinterp4d(kwargs['tau'], quant, new_tau), axes=trans)
-                    elif new_tau.ndim == 4:
-                        new_tau = np.transpose(new_tau, axes=trans)
-                        if np.all(np.diff(new_tau, axis=-1) > 0):
-                            new_tau = new_tau[:, :, :, ::-1]
-                            return np.transpose(eosx.cubeinterp4dcube(kwargs['tau'], quant, new_tau)[:, :, :, ::-1],
-                                                axes=trans)
-                        return np.transpose(eosx.cubeinterp4dcube(kwargs['tau'], quant, new_tau), axes=trans)
-                    else:
-                        raise ValueError("new_tau has wrong dimension. new_tau.ndim must be 1, 3, or 4")
-                else:
-                    new_tau = np.float32(new_tau)
-                    if axis == 1:
-                        trans = [0, 2, 1]
-                    elif axis == 0:
-                        trans = [2, 0, 1]
-                    else:
-                        trans = [0, 1, 2]
-                    return np.transpose(eosx.cubeinterp4dval(kwargs['tau'], quant, new_tau), axes=trans)
-            else:
-                raise ValueError("tau has wrong dimension. new_tau.ndim must be 1, 3, or 4")
-
-        if 'zb' in kwargs:
-            dz = np.diff(kwargs['zb'])
+            tau = np.transpose(kwargs['tau'], axes=trans).astype(np.float32)
         else:
-            dz = np.diff(z)/2
-            dz = np.append(dz, dz[-1])
-            zb = z - dz
-            zb = np.append(zb, z[-1] + dz[-1])
-
-        if 'rho' in kwargs:
-            if 'kappa' in kwargs:
-                tau = self.tau(kwargs['rho'], z, axis=axis, kappa=kwargs['kappa'], zb=zb)
-            elif 'T' in kwargs and 'P' in kwargs:
-                if 'iBand' in kwargs:
-                    tau = self.tau(kwargs['rho'], z, axis=axis, P=kwargs['P'], T=kwargs['T'], iBand=kwargs['iBand'])
+            if 'rho' in kwargs:
+                if 'kappa' in kwargs:
+                    tau = self.tau(kwargs['rho'], z, axis=axis, kappa=kwargs['kappa'], zb=zb)
+                elif 'T' in kwargs and 'P' in kwargs:
+                    if 'iBand' in kwargs:
+                        tau = self.tau(kwargs['rho'], z, axis=axis, P=kwargs['P'], T=kwargs['T'], iBand=kwargs['iBand'])
+                    else:
+                        tau = self.tau(kwargs['rho'], z, axis=axis, P=kwargs['P'], T=kwargs['T'])
                 else:
-                    tau = self.tau(kwargs['rho'], z, axis=axis, P=kwargs['P'], T=kwargs['T'])
+                    raise ValueError("Either the keyword-argument 'kappa', or 'T' (temperature) and 'P' (pressure) have"
+                                     " to be provided.")
             else:
-                raise ValueError("Either the keyword-argument 'kappa', or 'T' (temperature) and 'P' (pressure) have to"
-                                 " be provided.")
-        else:
-            raise ValueError("Either the keyword-argument 'tau' or 'rho' has to be provided.")
+                raise ValueError("Either the keyword-argument 'tau' or 'rho' has to be provided.")
 
-        dim = kwargs['rho'].ndim
+        # define dimension of input arrays and transpose-tuple, which changes the order of axis thus that last axis is
+        # interpolation-axis (necessary for cython-functions.
+        dim = tau.ndim
         trans = list(range(dim))
         trans[-1], trans[axis] = trans[axis], trans[-1]
-        tau = np.transpose(tau, axes=trans)
-        quant = np.transpose(quant, axes=trans)
+
+        tau = np.transpose(tau, axes=trans).astype(np.float32)
+        quantity = np.transpose(quant, axes=trans).astype(np.float32)
+        ntau = new_tau.astype(np.float32)
 
         if dim == 3:
-            if type(new_tau) == np.ndarray:
-                if new_tau.ndim == 1:
-                    return np.transpose(eosx.cubeinterp3dvec(tau.astype(np.float64), quant.astype(np.float64),
-                                                             new_tau.astype(np.float64)), axes=trans)
-                elif new_tau.ndim == 2:
+            if type(ntau) == np.ndarray:
+                if ntau.ndim == 1:
+                    if np.all(np.diff(ntau) > 0):
+                        ntau = ntau[::-1]
+                    return np.transpose(eosx.cubeinterp3dvec(tau, quantity, ntau), axes=trans)
+                elif ntau.ndim == 2:
+                    # result will be reduced by 1 dimension (surface). Trans has to be redefined.
                     if axis == 0:
                         trans = [1, 0]
                     else:
                         trans = [0, 1]
-                    return np.transpose(eosx.cubeinterp3d(tau.astype(np.float64), quant.astype(np.float64),
-                                                          new_tau.astype(np.float64)), axes=trans)
-                elif new_tau.ndim == 3:
-                    new_tau = np.transpose(new_tau, axes=trans)
-                    return np.transpose(eosx.cubeinterp3dcube(tau.astype(np.float64), quant.astype(np.float64),
-                                                              new_tau.astype(np.float64)), axes=trans)
+                    return np.transpose(eosx.cubeinterp3d(tau, quantity, ntau), axes=trans)
+                elif ntau.ndim == 3:
+                    ntau = np.transpose(ntau, axes=trans)
+                    if np.all(np.diff(ntau, axis=-1) > 0):
+                        ntau = ntau[:, :, ::-1]
+                    return np.transpose(eosx.cubeinterp3dcube(tau, quantity, ntau), axes=trans)
                 else:
                     raise ValueError("new_tau has wrong dimension. new_tau.ndim must be 1, 2, or 3")
             else:
+                # result will be reduced by 1 dimension (plane). Trans has to be redefined.
                 if axis == 0:
                     trans = [1, 0]
                 else:
                     trans = [0, 1]
-                return np.transpose(eosx.cubeinterp3dval(tau.astype(np.float64), quant.astype(np.float64),
-                                                         new_tau.astype(np.float64)), axes=trans)
+                return np.transpose(eosx.cubeinterp3dval(tau, quantity, ntau), axes=trans)
         elif dim == 4:
-            if type(new_tau) == np.ndarray:
-                if new_tau.ndim == 1:
-                    return np.transpose(eosx.cubeinterp4dvec(tau.astype(np.float64), quant.astype(np.float64),
-                                                             new_tau.astype(np.float64)), axes=trans)
-                elif new_tau.ndim == 3:
-                    if axis == 1:
-                        trans = [0, 2, 1]
-                    elif axis == 0:
+            if type(ntau) == np.ndarray:
+                if ntau.ndim == 1:
+                    if np.all(np.diff(ntau) > 0):
+                        ntau = ntau[::-1]
+                    return np.transpose(eosx.cubeinterp4dvec(tau, quantity, ntau), axes=trans)
+                elif ntau.ndim == 3:
+                    # result will be reduced by 1 dimension (surface). Trans has to be redefined.
+                    if axis == 0:
                         trans = [2, 0, 1]
+                    elif axis == 1:
+                        trans = [0, 2, 1]
                     else:
                         trans = [0, 1, 2]
-                    return np.transpose(eosx.cubeinterp4d(tau.astype(np.float64), quant.astype(np.float64),
-                                                          new_tau.astype(np.float64)), axes=trans)
-                elif new_tau.ndim == 4:
-                    new_tau = np.transpose(new_tau, axes=trans)
-                    return np.transpose(eosx.cubeinterp4dcube(tau.astype(np.float64),
-                                                              quant.astype(np.float64), new_tau.astype(np.float64)),
-                                        axes=trans)
+                    return np.transpose(eosx.cubeinterp4d(tau, quantity, ntau), axes=trans)
+                elif ntau.ndim == 4:
+                    ntau = np.transpose(ntau, axes=trans)
+                    if np.all(np.diff(ntau, axis=-1) > 0):
+                        ntau = ntau[:, :, :, ::-1]
+                    return np.transpose(eosx.cubeinterp4dcube(tau, quantity, ntau), axes=trans)
                 else:
                     raise ValueError("new_tau has wrong dimension. new_tau.ndim must be 1, 3, or 4")
             else:
-                if axis == 1:
-                    trans = [0, 2, 1]
-                elif axis == 0:
+                # result will be reduced by 1 dimension (plane). Trans has to be redefined.
+                if axis == 0:
                     trans = [2, 0, 1]
+                elif axis == 1:
+                    trans = [0, 2, 1]
                 else:
                     trans = [0, 1, 2]
-                return np.transpose(eosx.cubeinterp4dval(tau.astype(np.float64), quant.astype(np.float64),
-                                                         new_tau.astype(np.float64)), axes=trans)
+                return np.transpose(eosx.cubeinterp4dval(tau, quantity, ntau), axes=trans)
         else:
             raise ValueError("tau has wrong dimension. new_tau.ndim must be 1, 3, or 4")
 
