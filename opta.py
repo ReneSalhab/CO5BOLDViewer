@@ -446,41 +446,47 @@ class Opac:
                     >>> kappa = opa.kappa(T, P[, iBand=1])
                     >>> tau = opa.tau(rho, z[, axis=1[, iBand=1]], kappa=kappa)   # computes and returns tau.
         """
+
+        # define dimension of input arrays and transpose-tuple, which changes the order of axis thus that last axis is
+        # interpolation-axis (necessary for cython-functions.
+        dim = quant.ndim
+        trans = list(range(dim))
+        trans[-1], trans[axis] = trans[axis], trans[-1]
+
         if not eosx_available:
             raise ImportError("Compiled functions of eosx not found!")
-
-        if 'zb' not in kwargs:
-            dz = np.diff(z)
-            zb = z - dz/2
-            zb = np.append(zb, zb[-1])
-            zb[-1] += dz/2
 
         if 'tau' in kwargs:
             tau = np.transpose(kwargs['tau'], axes=trans).astype(np.float32)
         else:
             if 'rho' in kwargs:
+                if 'z' in kwargs:
+                    z = kwargs['z'].astype(np.float32)
+                else:
+                    raise ValueError("If tau is not provided, providing z (interpolation-axis) is mandatory.")
                 if 'kappa' in kwargs:
-                    tau = self.tau(kwargs['rho'], z, axis=axis, kappa=kwargs['kappa'], zb=zb)
+                    if 'zb' not in kwargs and 'tau' not in kwargs:
+                        dz = np.diff(z)
+                        zb = z - dz / 2
+                        zb = np.append(zb, zb[-1])
+                    kappa = kwargs['kappa'].astype(np.float32)
+                    tau = self.tau(kwargs['rho'], z, axis=axis, kappa=kappa, zb=zb)
                 elif 'T' in kwargs and 'P' in kwargs:
+                    T = kwargs['T'].astype(np.float32)
+                    P = kwargs['P'].astype(np.float32)
                     if 'iBand' in kwargs:
-                        tau = self.tau(kwargs['rho'], z, axis=axis, P=kwargs['P'], T=kwargs['T'], iBand=kwargs['iBand'])
+                        tau = self.tau(kwargs['rho'], z, axis=axis, P=P, T=T, iBand=kwargs['iBand'])
                     else:
-                        tau = self.tau(kwargs['rho'], z, axis=axis, P=kwargs['P'], T=kwargs['T'])
+                        tau = self.tau(kwargs['rho'], z, axis=axis, P=P, T=T)
                 else:
                     raise ValueError("Either the keyword-argument 'kappa', or 'T' (temperature) and 'P' (pressure) have"
                                      " to be provided.")
             else:
                 raise ValueError("Either the keyword-argument 'tau' or 'rho' has to be provided.")
 
-        # define dimension of input arrays and transpose-tuple, which changes the order of axis thus that last axis is
-        # interpolation-axis (necessary for cython-functions.
-        dim = tau.ndim
-        trans = list(range(dim))
-        trans[-1], trans[axis] = trans[axis], trans[-1]
-
         tau = np.transpose(tau, axes=trans).astype(np.float32)
         quantity = np.transpose(quant, axes=trans).astype(np.float32)
-        ntau = new_tau.astype(np.float32)
+        ntau = np.float32(new_tau)
 
         if dim == 3:
             if type(ntau) == np.ndarray:
