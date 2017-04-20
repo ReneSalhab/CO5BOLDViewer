@@ -469,6 +469,7 @@ class Opac:
                         dz = np.diff(z)
                         zb = z - dz / 2
                         zb = np.append(zb, zb[-1])
+                        zb[-1] += dz
                     kappa = kwargs['kappa'].astype(np.float32)
                     tau = self.tau(kwargs['rho'], z, axis=axis, kappa=kappa, zb=zb)
                 elif 'T' in kwargs and 'P' in kwargs:
