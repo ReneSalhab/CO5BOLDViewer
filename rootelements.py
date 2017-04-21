@@ -468,8 +468,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.currentFileLabel = QtWidgets.QLabel("")
         self.currentFileLabel.setAlignment(QtCore.Qt.AlignCenter)
-        self.currentFileLabel.setMaximumWidth(55)
-        self.currentFileLabel.setMinimumWidth(55)
+        self.currentFileLabel.setMaximumWidth(70)
+        self.currentFileLabel.setMinimumWidth(70)
         self.currentFileLabel.setObjectName("current-file-Label")
 
         timeLayout.addWidget(timeTitle, 0, 0)

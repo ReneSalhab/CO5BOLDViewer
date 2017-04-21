@@ -58,7 +58,7 @@ will start the CO5BOLDViewer. If something goes wrong, please let me know.
 
 ### Version 0.8.3
 
-- 10-log and 10-log of absolute value implemented
+- log-10 and log-10 of absolute value implemented
 - fixed a bug, when loading little-endian eos-files
 - fixed a bug, when clicking outside of plot-area
 - introduced check-box for inverting colormap
