@@ -31,7 +31,7 @@ from eosinter import EosInter
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
-        self.version = "0.8.3.3"
+        self.version = "0.8.3.5"
         super(MainWindow, self).__init__()
 
         self.initUI()
@@ -163,7 +163,7 @@ class MainWindow(QtWidgets.QMainWindow):
         exitAction.triggered.connect(self.close)
 
         # --------------------------------------------------------------------
-        # --- "Output" drop-down menu elements ---
+        # ----------------- "Output" drop-down menu elements -----------------
         # --------------------------------------------------------------------
 
         saveImageAction = QtWidgets.QAction("Save &Image", self)
@@ -215,16 +215,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.fname, fil = QtWidgets.QFileDialog.getOpenFileNames(self, "Open Model File", self.stdDirMod,
                                                                  "Model files (*.full *.end *.sta);;Mean files(*.mean)")
         self.stdDirMod = os.sep.join(self.fname[0].split(os.sep)[:-1])
+        Nfiles = len(self.fname)
 
-        if len(self.fname) > 0:
+        if Nfiles > 0:
             self.statusBar().showMessage("Read Modelfile...")
             QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
 
             self.modelfile = []
 
-            pd = QtWidgets.QProgressDialog("Load Model-files...", "Cancel", 0, len(self.fname), self)
+            pd = QtWidgets.QProgressDialog("Load Model-files...", "Cancel", 0, Nfiles, self)
 
-            for i in range(len(self.fname)):
+            for i in range(Nfiles):
                 self.modelfile.append(uio.File(self.fname[i]))
                 pd.setValue(i)
 
@@ -236,8 +237,7 @@ class MainWindow(QtWidgets.QMainWindow):
             if fil == "Mean files(*.mean)":
                 self.meanfile = True
                 # --- content from .mean file ---
-                # --- Components depict box number from filestructure (see manual
-                # --- of Co5bold)
+                # --- Components depict box number from filestructure (see manual of CO5BOLD)
 
                 self.dataTypeList = [OrderedDict([("Bolometric intensity", "intb3_r"),
                                                   ("Intensity (bin 1)", "int01b3_r"),
@@ -312,7 +312,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.initialLoad()
 
             QtWidgets.QApplication.restoreOverrideCursor()
-            self.statusBar().showMessage("Loaded {f} files".format(f=str(len(self.fname))))
+            self.statusBar().showMessage("Loaded {f} files".format(f=str(Nfiles)))
 
     def showSaveSliceDialog(self):
         if not self.stdDir:
@@ -450,6 +450,7 @@ class MainWindow(QtWidgets.QMainWindow):
         timeTitle = QtWidgets.QLabel("Time step:")
 
         self.currentTimeEdit = QtWidgets.QLineEdit(str(self.timeSlider.value()))
+        self.currentTimeEdit.setAlignment(QtCore.Qt.AlignCenter)
         self.currentTimeEdit.setMaximumWidth(40)
         self.currentTimeEdit.setMinimumWidth(40)
         self.currentTimeEdit.textChanged.connect(self.currentEditChange)
@@ -458,9 +459,18 @@ class MainWindow(QtWidgets.QMainWindow):
         currentTimeTitle = QtWidgets.QLabel("t/[s]:")
 
         self.actualTimeLabel = QtWidgets.QLabel(str(self.timeSlider.value()))
+        self.actualTimeLabel.setAlignment(QtCore.Qt.AlignCenter)
         self.actualTimeLabel.setMaximumWidth(55)
         self.actualTimeLabel.setMinimumWidth(55)
         self.actualTimeLabel.setObjectName("actual-time-Label")
+
+        currentFileTitle = QtWidgets.QLabel("File:")
+
+        self.currentFileLabel = QtWidgets.QLabel("")
+        self.currentFileLabel.setAlignment(QtCore.Qt.AlignCenter)
+        self.currentFileLabel.setMaximumWidth(55)
+        self.currentFileLabel.setMinimumWidth(55)
+        self.currentFileLabel.setObjectName("current-file-Label")
 
         timeLayout.addWidget(timeTitle, 0, 0)
         timeLayout.addWidget(self.timeSlider, 0, 1, 1, 2)
@@ -470,6 +480,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         timeLayout.addWidget(self.prevTimeBtn, 1, 1)
         timeLayout.addWidget(self.nextTimeBtn, 1, 2)
+        timeLayout.addWidget(currentFileTitle, 1, 4)
+        timeLayout.addWidget(self.currentFileLabel, 1, 5)
 
         # ---------------------------------------------------------------------
         # ---------------- Groupbox with position components ------------------
@@ -531,6 +543,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.currentX1Edit.setObjectName("current-x-Edit")
 
         self.actualX1Label = QtWidgets.QLabel(str(0))
+        self.actualX1Label.setAlignment(QtCore.Qt.AlignCenter)
         self.actualX1Label.setMaximumWidth(55)
         self.actualX1Label.setMinimumWidth(55)
 
@@ -545,6 +558,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.currentX2Edit.setObjectName("current-y-Edit")
 
         self.actualX2Label = QtWidgets.QLabel(str(0))
+        self.actualX2Label.setAlignment(QtCore.Qt.AlignCenter)
         self.actualX2Label.setMaximumWidth(55)
         self.actualX2Label.setMinimumWidth(55)
 
@@ -559,6 +573,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.currentX3Edit.setObjectName("current-z-Edit")
 
         self.actualX3Label = QtWidgets.QLabel(str(0))
+        self.actualX3Label.setAlignment(QtCore.Qt.AlignCenter)
         self.actualX3Label.setMaximumWidth(55)
         self.actualX3Label.setMinimumWidth(55)
 
@@ -1531,6 +1546,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
             self.modelind = int(self.time[self.timind, 1])
             self.dsind = int(self.time[self.timind, 2])
+            fname = self.fname[self.modelind].split("/")[-1]
+            self.currentFileLabel.setText(fname)
 
             self.data = self.setPlotData(self.modelind, self.dsind)
             self.sameNorm = True
@@ -1685,7 +1702,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 self.timind = int(self.currentTimeEdit.text())
                 self.timeSlider.setValue(self.timind)
-                self.statusBar().showMessage("")
 
             elif sender.objectName() == "current-x-Edit":
                 if int(self.currentX1Edit.text()) > len(self.xc1):
@@ -1695,7 +1711,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 self.x1ind = int(self.currentX1Edit.text())
                 self.x1Slider.setValue(self.x1ind)
-                self.statusBar().showMessage("")
 
             elif sender.objectName() == "current-y-Edit":
                 if int(self.currentX2Edit.text()) > len(self.xc2):
@@ -1705,7 +1720,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 self.x2ind = int(self.currentX2Edit.text())
                 self.x2Slider.setValue(self.x2ind)
-                self.statusBar().showMessage("")
 
             elif sender.objectName() == "current-z-Edit":
                 if int(self.currentX3Edit.text()) > len(self.xc3):
@@ -1715,7 +1729,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 self.x3ind = int(self.currentX3Edit.text())
                 self.x3Slider.setValue(self.x3ind)
-                self.statusBar().showMessage("")
+
+            self.statusBar().showMessage("")
         except:
             self.statusBar().showMessage("Invalid input in currentEditChange!")
 
@@ -1723,8 +1738,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         sender = self.sender()
 
-        if sender.objectName() == "next-time-Button" and\
-            self.timind < (self.timlen - 1):
+        if sender.objectName() == "next-time-Button" and self.timind < (self.timlen - 1):
             self.timind += 1
             self.sameNorm = True
         elif sender.objectName() == "prev-time-Button" and self.timind > 0:

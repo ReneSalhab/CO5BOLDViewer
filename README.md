@@ -1,4 +1,4 @@
-# CO5BOLDViewer 0.8.3.3
+# CO5BOLDViewer 0.8.3.5
 
 A QT-based viewer of .uio-data used by CO5BOLD. Written in Python 3.5.
 
