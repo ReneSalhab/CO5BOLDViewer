@@ -1,4 +1,4 @@
-# CO5BOLDViewer 0.8.3.5
+# CO5BOLDViewer 0.8.4
 
 A QT-based viewer of .uio-data used by CO5BOLD. Written in Python 3.5.
 
@@ -55,6 +55,12 @@ or
 will start the CO5BOLDViewer. If something goes wrong, please let me know.
 
 ## Change-Log
+
+### Version 0.8.4
+
+- FIX: cross-hair is working
+- FIX: arrows of magnetic field don´t have correct length in Gausz
+- NEW: current file is shown, when going through time-series
 
 ### Version 0.8.3
 
