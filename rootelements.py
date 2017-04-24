@@ -203,10 +203,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setMenuBar(menubar)
 
     def showImageSaveDialog(self):
-        sc.showImageSaveDialog(self.modelfile, self.data, self.timeSlider.value(), self.dataTypeCombo.currentText(),
+        sc.showImageSaveDialog(self.modelfile, self.data, self.timeSlider.value(), self.quantityCombo.currentText(),
                                self.time[:, 0], self.x1Slider.value(), self.xc1, self.x2Slider.value(), self.xc2,
                                self.x3Slider.value(), self.xc3, self.cmCombo.currentIndex(),
-                               self.dataTypeCombo.currentIndex())
+                               self.quantityCombo.currentIndex())
 
     def showLoadModelDialog(self):
         if self.stdDirMod is None:
@@ -239,7 +239,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 # --- content from .mean file ---
                 # --- Components depict box number from filestructure (see manual of CO5BOLD)
 
-                self.dataTypeList = [OrderedDict([("Bolometric intensity", "intb3_r"),
+                self.quantityList = [OrderedDict([("Bolometric intensity", "intb3_r"),
                                                   ("Intensity (bin 1)", "int01b3_r"),
                                                   ("Intensity (bin 2)", "int02b3_r"),
                                                   ("Intensity (bin 3)", "int03b3_r"),
@@ -254,7 +254,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 # --- Second list component: Data from post computed arrays
                 # --- Third list component: Post computed MHD data, if present
 
-                self.dataTypeList = [OrderedDict([("Density", "rho"), ("Internal energy", "ei"),
+                self.quantityList = [OrderedDict([("Density", "rho"), ("Internal energy", "ei"),
                                                   ("Velocity x-component", "v1"), ("Velocity y-component", "v2"),
                                                   ("Velocity z-component", "v3"), ("Velocity, absolute", "vabs"),
                                                   ("Velocity, horizontal", "vhor"), ("Kinetic energy", "kinEn"),
@@ -266,7 +266,7 @@ class MainWindow(QtWidgets.QMainWindow):
                         break
 
                 if mhd:
-                    self.dataTypeList.append(OrderedDict([("Magnetic field Bx", "bc1"), ("Magnetic field By", "bc2"),
+                    self.quantityList.append(OrderedDict([("Magnetic field Bx", "bc1"), ("Magnetic field By", "bc2"),
                                                           ("Magnetic field Bz", "bc3"), ("Divergence of B", "divB"),
                                                           ("Magnetic field Bh (horizontal)", "bh"),
                                                           ("Magnetic f.abs.|B|, unsigned", "absb"),
@@ -290,24 +290,24 @@ class MainWindow(QtWidgets.QMainWindow):
             # interpolated data, if already loaded
 
             if self.eos:
-                self.dataTypeList.append(OrderedDict([("Temperature", "temp"), ("Entropy", "entr"), ("Pressure", "press"),
+                self.quantityList.append(OrderedDict([("Temperature", "temp"), ("Entropy", "entr"), ("Pressure", "press"),
                                                       ("Adiabatic coefficient G1", "gamma1"), ("Mach Number", "mach"),
                                                       ("Adiabatic coefficient G3", "gamma3"), ("Sound velocity", "c_s"),
                                                       ("Mean molecular weight", "mu"), ("Plasma beta", "beta"),
                                                       ("c_s / c_A", "csca")]))
 
             if self.opa:
-                self.dataTypeList[-1]["Opacity"] = "opa"
-                self.dataTypeList[-1]["Optical depth"] = "optdep"
+                self.quantityList[-1]["Opacity"] = "opa"
+                self.quantityList[-1]["Optical depth"] = "optdep"
 
             if not self.modelfile[0].closed:
-                self.dataTypeCombo.clear()
+                self.quantityCombo.clear()
                 self.outputMenu.setDisabled(False)
 
-                for type in self.dataTypeList:
-                    self.dataTypeCombo.addItems(sorted(type.keys()))
+                for type in self.quantityList:
+                    self.quantityCombo.addItems(sorted(type.keys()))
 
-                self.dataTypeCombo.setDisabled(False)
+                self.quantityCombo.setDisabled(False)
 
                 self.initialLoad()
 
@@ -326,12 +326,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
             if fil == "HDF5 file (*.h5)":
                 self.statusBar().showMessage("Save HDF5-file...")
-                sc.saveHD5(fname, self.modelfile[self.modelind], self.dataTypeCombo.currentText(),
+                sc.saveHD5(fname, self.modelfile[self.modelind], self.quantityCombo.currentText(),
                            self.data, self.time[self.timind, 0], (self.x1ind,
                            self.x2ind, self.x3ind), self.planeCombo.currentText())
             elif fil == "FITS file (*.fits)":
                 self.statusBar().showMessage("Save FITS-file...")
-                sc.saveFits(fname, self.modelfile[self.modelind], self.dataTypeCombo.currentText(),
+                sc.saveFits(fname, self.modelfile[self.modelind], self.quantityCombo.currentText(),
                             self.data, self.time[self.timind, 0], (self.x1ind,
                             self.x2ind, self.x3ind), self.planeCombo.currentText())
             QtWidgets.QApplication.restoreOverrideCursor()
@@ -352,19 +352,19 @@ class MainWindow(QtWidgets.QMainWindow):
 
             self.Eos = EosInter(self.eosname)
 
-            # Check if self.dataTypeList exists (model file already loaded?)
+            # Check if self.quantityList exists (model file already loaded?)
 
-            if not self.eos and hasattr(self, 'dataTypeList'):
-                self.dataTypeList.append(OrderedDict([("Temperature", "temp"), ("Entropy", "entr"),
+            if not self.eos and hasattr(self, 'quantityList'):
+                self.quantityList.append(OrderedDict([("Temperature", "temp"), ("Entropy", "entr"),
                                                       ("Pressure", "press"), ("Adiabatic coefficient G1", "gamma1"),
                                                       ("Adiabatic coefficient G3", "gamma3"), ("Sound velocity", "c_s"),
                                                       ("Mach Number", "mach"), ("Mean molecular weight", "mu"),
                                                       ("Plasma beta", "beta"), ("c_s / c_A", "csca")]))
 
             if self.opa:
-                self.dataTypeList[-1]["Opacity"] = "opa"
-                self.dataTypeList[-1]["Optical depth"] = "optdep"
-            self.dataTypeCombo.addItems(self.dataTypeList[-1].keys())
+                self.quantityList[-1]["Opacity"] = "opa"
+                self.quantityList[-1]["Optical depth"] = "optdep"
+            self.quantityCombo.addItems(self.quantityList[-1].keys())
 
             self.eos = True
 
@@ -386,11 +386,11 @@ class MainWindow(QtWidgets.QMainWindow):
 
             self.Opa = Opac(self.opaname)
             if self.eos:
-                self.dataTypeList[-1]["Opacity"] = "opa"
-                self.dataTypeList[-1]["Optical depth"] = "optdep"
+                self.quantityList[-1]["Opacity"] = "opa"
+                self.quantityList[-1]["Optical depth"] = "optdep"
 
-                self.dataTypeCombo.addItem("Opacity")
-                self.dataTypeCombo.addItem("Optical depth")
+                self.quantityCombo.addItem("Opacity")
+                self.quantityCombo.addItem("Optical depth")
             self.opa = True
 
             QtWidgets.QApplication.restoreOverrideCursor()
@@ -402,8 +402,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         maingrid = QtWidgets.QHBoxLayout(self.centralWidget)
 
-        # --- Splitter for dynamic seperation of control elements section and
-        # --- plot-box
+        # --- Splitter for dynamic seperation of control elements section and plot-box
 
         splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
         maingrid.addWidget(splitter)
@@ -614,15 +613,15 @@ class MainWindow(QtWidgets.QMainWindow):
         dataParamsLayout = QtWidgets.QGridLayout(dataParamsGroup)
         dataParamsGroup.setLayout(dataParamsLayout)
 
-        # --- ComboBox for datatype selection ---
+        # --- ComboBox for quantity selection ---
 
-        self.dataTypeCombo = QtWidgets.QComboBox(self.centralWidget)
-        self.dataTypeCombo.clear()
-        self.dataTypeCombo.setDisabled(True)
-        self.dataTypeCombo.setObjectName("datatype-Combo")
-        self.dataTypeCombo.activated.connect(self.dataTypeChange)
+        self.quantityCombo = QtWidgets.QComboBox(self.centralWidget)
+        self.quantityCombo.clear()
+        self.quantityCombo.setDisabled(True)
+        self.quantityCombo.setObjectName("quantity-Combo")
+        self.quantityCombo.activated.connect(self.quantityChange)
 
-        dataTypeLabel = QtWidgets.QLabel("Data type:")
+        quantityLabel = QtWidgets.QLabel("Data type:")
 
         # --- ComboBox for colormap selection ---
 
@@ -715,8 +714,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # --- Setup of data-presentation-layout ---
 
-        dataParamsLayout.addWidget(dataTypeLabel, 0, 0)
-        dataParamsLayout.addWidget(self.dataTypeCombo, 0, 1, 1, 3)
+        dataParamsLayout.addWidget(quantityLabel, 0, 0)
+        dataParamsLayout.addWidget(self.quantityCombo, 0, 1, 1, 3)
         dataParamsLayout.addWidget(self.normCheck, 0, 4, 1, 2)
         dataParamsLayout.addWidget(self.mathCombo, 0, 6, 1, 1)
 
@@ -880,12 +879,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.boxind = -1
 
-        for i, dataType in enumerate(self.dataTypeList):
-            if self.dataTypeCombo.currentText() in dataType.keys():
+        for i, quantity in enumerate(self.quantityList):
+            if self.quantityCombo.currentText() in quantity.keys():
                 self.boxind = i
                 break
 
-        self.typeind = self.dataTypeList[self.boxind][self.dataTypeCombo.currentText()]
+        self.typeind = self.quantityList[self.boxind][self.quantityCombo.currentText()]
 
         # --- determine slider boundaries ---
 
@@ -1106,20 +1105,20 @@ class MainWindow(QtWidgets.QMainWindow):
         QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
 
         if not self.meanfile:
-            if self.dataTypeCombo.currentText() == "Velocity, horizontal":
+            if self.quantityCombo.currentText() == "Velocity, horizontal":
                 v1 = self.modelfile[mod].dataset[dat].box[0]["v1"].data
                 v2 = self.modelfile[mod].dataset[dat].box[0]["v2"].data
 
                 data = ne.evaluate("sqrt(v1**2+v2**2)")
                 self.unit = "cm/s"
-            elif  self.dataTypeCombo.currentText() == "Velocity, absolute":
+            elif  self.quantityCombo.currentText() == "Velocity, absolute":
                 v1 = self.modelfile[mod].dataset[dat].box[0]["v1"].data
                 v2 = self.modelfile[mod].dataset[dat].box[0]["v2"].data
                 v3 = self.modelfile[mod].dataset[dat].box[0]["v3"].data
 
                 data = ne.evaluate("sqrt(v1**2+v2**2+v3**2)")
                 self.unit = "cm/s"
-            elif self.dataTypeCombo.currentText() == "Kinetic energy":
+            elif self.quantityCombo.currentText() == "Kinetic energy":
                 v1 = self.modelfile[mod].dataset[dat].box[0]["v1"].data
                 v2 = self.modelfile[mod].dataset[dat].box[0]["v2"].data
                 v3 = self.modelfile[mod].dataset[dat].box[0]["v3"].data
@@ -1127,7 +1126,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 data = ne.evaluate("0.5*rho*(v1**2+v2**2+v3**2)")
                 self.unit = "erg/cm^3"
-            elif self.dataTypeCombo.currentText() == "Momentum":
+            elif self.quantityCombo.currentText() == "Momentum":
                 v1 = self.modelfile[mod].dataset[dat].box[0]["v1"].data
                 v2 = self.modelfile[mod].dataset[dat].box[0]["v2"].data
                 v3 = self.modelfile[mod].dataset[dat].box[0]["v3"].data
@@ -1135,31 +1134,31 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 data = ne.evaluate("rho*sqrt(v1**2+v2**2+v3**2)")
                 self.unit = "g/(cm^2 * s)"
-            elif self.dataTypeCombo.currentText() == "Vert. mass flux (Rho*V3)":
+            elif self.quantityCombo.currentText() == "Vert. mass flux (Rho*V3)":
                 v3 = self.modelfile[mod].dataset[dat].box[0]["v3"].data
                 rho = self.modelfile[mod].dataset[dat].box[0]["rho"].data
 
                 data = ne.evaluate("rho*v3")
                 self.unit = "g/(cm^2 * s)"
-            elif self.dataTypeCombo.currentText() == "Magnetic field Bx":
+            elif self.quantityCombo.currentText() == "Magnetic field Bx":
                 bb1 = self.modelfile[mod].dataset[dat].box[0]["bb1"].data
 
                 data = ip.interp1d(self.xb1, bb1, copy=False, assume_sorted=True)(self.xc1)*math.sqrt(const)
                 self.unit = "G"
-            elif self.dataTypeCombo.currentText() == "Magnetic field By":
+            elif self.quantityCombo.currentText() == "Magnetic field By":
                 bb2 = self.modelfile[mod].dataset[dat].box[0]["bb2"].data
 
                 data = ip.interp1d(self.xb2, bb2, axis=1, copy=False, assume_sorted=True)(self.xc2) *\
                             math.sqrt(const)
                 self.unit = "G"
 
-            elif self.dataTypeCombo.currentText() == "Magnetic field Bz":
+            elif self.quantityCombo.currentText() == "Magnetic field Bz":
                 bb3 = self.modelfile[mod].dataset[dat].box[0]["bb3"].data
 
                 data = ip.interp1d(self.xb3, bb3, axis=0, copy=False, assume_sorted=True)(self.xc3) *\
                             math.sqrt(const)
                 self.unit = "G"
-            elif self.dataTypeCombo.currentText() == "Magnetic field Bh (horizontal)":
+            elif self.quantityCombo.currentText() == "Magnetic field Bh (horizontal)":
                 bb1 = self.modelfile[mod].dataset[dat].box[0]["bb1"].data
                 bb2 = self.modelfile[mod].dataset[dat].box[0]["bb2"].data
 
@@ -1168,7 +1167,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 data = ne.evaluate("sqrt((bc1**2.0+bc2**2.0)*const)")
                 self.unit = "G"
-            elif self.dataTypeCombo.currentText() == "Magnetic f.abs.|B|, unsigned":
+            elif self.quantityCombo.currentText() == "Magnetic f.abs.|B|, unsigned":
                 bb1 = self.modelfile[mod].dataset[dat].box[0]["bb1"].data
                 bb2 = self.modelfile[mod].dataset[dat].box[0]["bb2"].data
                 bb3 = self.modelfile[mod].dataset[dat].box[0]["bb3"].data
@@ -1179,7 +1178,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 data = ne.evaluate("sqrt((bc1*bc1+bc2*bc2+bc3*bc3)*const)")
                 self.unit = "G"
-            elif self.dataTypeCombo.currentText() == "Magnetic field B^2, signed":
+            elif self.quantityCombo.currentText() == "Magnetic field B^2, signed":
                 bb1 = self.modelfile[mod].dataset[dat].box[0]["bb1"].data
                 bb2 = self.modelfile[mod].dataset[dat].box[0]["bb2"].data
                 bb3 = self.modelfile[mod].dataset[dat].box[0]["bb3"].data
@@ -1207,21 +1206,21 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 data *= const
                 self.unit = "G^2"
-            elif self.dataTypeCombo.currentText() == "Vert. magnetic flux Bz*Az":
+            elif self.quantityCombo.currentText() == "Vert. magnetic flux Bz*Az":
                 A = np.diff(self.xb1) * np.diff(self.xb2)
                 bb3 = self.modelfile[mod].dataset[dat].box[0]["bb3"].data
 
                 data = ip.interp1d(self.xb3, bb3, axis=0, copy=False, assume_sorted=True)(self.xc3) * A *\
                        math.sqrt(const)
                 self.unit = "G*km^2"
-            elif self.dataTypeCombo.currentText() == "Vert. magnetic gradient Bz/dz":
+            elif self.quantityCombo.currentText() == "Vert. magnetic gradient Bz/dz":
                 x3 = self.modelfile[0].dataset[0].box[0]["xb3"].data.squeeze()*1.e-5
                 bb3 = self.modelfile[mod].dataset[dat].box[0]["bb3"].data
                 dz = np.diff(x3)
 
                 data = math.sqrt(const) * np.diff(bb3, axis=0) / dz[:, np.newaxis, np.newaxis]
                 self.unit = "G/km"
-            elif self.dataTypeCombo.currentText() == "Magnetic energy":
+            elif self.quantityCombo.currentText() == "Magnetic energy":
                 bb1 = self.modelfile[mod].dataset[dat].box[0]["bb1"].data
                 bb2 = self.modelfile[mod].dataset[dat].box[0]["bb2"].data
                 bb3 = self.modelfile[mod].dataset[dat].box[0]["bb3"].data
@@ -1232,7 +1231,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 data = ne.evaluate("(bc1**2+bc2**2+bc3**2)/2")
                 self.unit = "G^2"
-            elif self.dataTypeCombo.currentText() == "Divergence of B":
+            elif self.quantityCombo.currentText() == "Divergence of B":
                 bb1 = self.modelfile[mod].dataset[dat].box[0]["bb1"].data
                 bb2 = self.modelfile[mod].dataset[dat].box[0]["bb2"].data
                 bb3 = self.modelfile[mod].dataset[dat].box[0]["bb3"].data
@@ -1253,7 +1252,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 data = ne.evaluate("(dbxdx + dbydy + dbzdz) * sqrt(const)")
                 self.unit = "G/km"
 
-            elif self.dataTypeCombo.currentText() == "Alfven speed":
+            elif self.quantityCombo.currentText() == "Alfven speed":
                 rho = self.modelfile[mod].dataset[dat].box[0]["rho"].data
 
                 bb1 = self.modelfile[mod].dataset[dat].box[0]["bb1"].data
@@ -1266,7 +1265,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 data = ne.evaluate("sqrt((bc1**2+bc2**2+bc3**2)/rho)")
                 self.unit = "cm/s"
-            elif self.dataTypeCombo.currentText() == "Electric current density jx":
+            elif self.quantityCombo.currentText() == "Electric current density jx":
                 bb2 = self.modelfile[mod].dataset[dat].box[0]["bb2"].data
                 bb3 = self.modelfile[mod].dataset[dat].box[0]["bb3"].data
 
@@ -1286,7 +1285,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 data = ne.evaluate("clight*(dbzdy-dbydz)/sqrt(const)")
                 self.unit = "G/m"
-            elif self.dataTypeCombo.currentText() == "Electric current density jy":
+            elif self.quantityCombo.currentText() == "Electric current density jy":
                 bb1 = self.modelfile[mod].dataset[dat].box[0]["bb1"].data
                 bb3 = self.modelfile[mod].dataset[dat].box[0]["bb3"].data
 
@@ -1306,7 +1305,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 data = ne.evaluate("clight*(dbxdz-dbzdx)/sqrt(const)")
                 self.unit = "G/m"
-            elif self.dataTypeCombo.currentText() == "Electric current density jz":
+            elif self.quantityCombo.currentText() == "Electric current density jz":
                 bb1 = self.modelfile[mod].dataset[dat].box[0]["bb1"].data
                 bb2 = self.modelfile[mod].dataset[dat].box[0]["bb2"].data
 
@@ -1326,7 +1325,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 data = ne.evaluate("clight*(dbydx-dbxdy)/sqrt(const)")
                 self.unit = "G/m"
-            elif self.dataTypeCombo.currentText() == "Electric current density |j|":
+            elif self.quantityCombo.currentText() == "Electric current density |j|":
                 bb1 = self.modelfile[mod].dataset[dat].box[0]["bb1"].data
                 bb2 = self.modelfile[mod].dataset[dat].box[0]["bb2"].data
                 bb3 = self.modelfile[mod].dataset[dat].box[0]["bb3"].data
@@ -1356,13 +1355,13 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 data = ne.evaluate("clight*sqrt(((dbzdy-dbydz)**2+(dbxdz-dbzdx)**2+(dbydx-dbxdy)**2)/const)")
                 self.unit = "G/m"
-            elif self.dataTypeCombo.currentText() in ["Entropy", "Pressure", "Temperature"]:
+            elif self.quantityCombo.currentText() in ["Entropy", "Pressure", "Temperature"]:
                 rho = self.modelfile[mod].dataset[dat].box[0]["rho"].data
                 ei = self.modelfile[mod].dataset[dat].box[0]["ei"].data
 
-                data = self.Eos.STP(rho, ei, quantity=self.dataTypeCombo.currentText())
-                self.unit = self.Eos.unit(quantity=self.dataTypeCombo.currentText())
-            elif self.dataTypeCombo.currentText() == "Plasma beta":
+                data = self.Eos.STP(rho, ei, quantity=self.quantityCombo.currentText())
+                self.unit = self.Eos.unit(quantity=self.quantityCombo.currentText())
+            elif self.quantityCombo.currentText() == "Plasma beta":
                 bb1 = self.modelfile[mod].dataset[dat].box[0]["bb1"].data
                 bb2 = self.modelfile[mod].dataset[dat].box[0]["bb2"].data
                 bb3 = self.modelfile[mod].dataset[dat].box[0]["bb3"].data
@@ -1378,7 +1377,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 data = ne.evaluate("2.0*P/(bc1**2+bc2**2+bc3**2)")
                 self.unit = ""
-            elif self.dataTypeCombo.currentText() == "Sound velocity":
+            elif self.quantityCombo.currentText() == "Sound velocity":
                 rho = self.modelfile[mod].dataset[dat].box[0]["rho"].data
                 ei = self.modelfile[mod].dataset[dat].box[0]["ei"].data
 
@@ -1386,7 +1385,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 data = ne.evaluate("sqrt(P*dPde/(rho**2.0)+dPdrho)")
                 self.unit = "cm/s"
-            elif self.dataTypeCombo.currentText() == "c_s / c_A":
+            elif self.quantityCombo.currentText() == "c_s / c_A":
                 rho = self.modelfile[mod].dataset[dat].box[0]["rho"].data
                 ei = self.modelfile[mod].dataset[dat].box[0]["ei"].data
 
@@ -1402,7 +1401,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 data = ne.evaluate("sqrt(P*dPde/(rho**2)+dPdrho)/sqrt((bc1**2+bc2**2+bc3**2)/rho)")
                 self.unit = ""
-            elif self.dataTypeCombo.currentText() == "Mean molecular weight":
+            elif self.quantityCombo.currentText() == "Mean molecular weight":
                 rho = self.modelfile[mod].dataset[dat].box[0]["rho"].data
                 ei = self.modelfile[mod].dataset[dat].box[0]["ei"].data
 
@@ -1412,7 +1411,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 data = ne.evaluate("R*rho*T/P")
 
                 self.unit = ""
-            elif self.dataTypeCombo.currentText() == "Mach Number":
+            elif self.quantityCombo.currentText() == "Mach Number":
                 rho = self.modelfile[mod].dataset[dat].box[0]["rho"].data
                 ei = self.modelfile[mod].dataset[dat].box[0]["ei"].data
 
@@ -1424,7 +1423,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 data = ne.evaluate("sqrt((v1**2+v2**2+v3**2)/(P*dPde/(rho**2.0)+dPdrho))")
                 self.unit = ""
-            elif self.dataTypeCombo.currentText() == "Adiabatic coefficient G1":
+            elif self.quantityCombo.currentText() == "Adiabatic coefficient G1":
                 rho = self.modelfile[mod].dataset[dat].box[0]["rho"].data
                 ei = self.modelfile[mod].dataset[dat].box[0]["ei"].data
 
@@ -1432,7 +1431,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 data = ne.evaluate("dPdrho*rho/P+dPde/rho")
                 self.unit = ""
-            elif self.dataTypeCombo.currentText() == "Adiabatic coefficient G3":
+            elif self.quantityCombo.currentText() == "Adiabatic coefficient G3":
                 rho = self.modelfile[mod].dataset[dat].box[0]["rho"].data
                 ei = self.modelfile[mod].dataset[dat].box[0]["ei"].data
 
@@ -1440,7 +1439,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 data = ne.evaluate("dPde/rho+1.0")
                 self.unit = ""
-            elif self.dataTypeCombo.currentText() == "Opacity":
+            elif self.quantityCombo.currentText() == "Opacity":
                 rho = self.modelfile[mod].dataset[dat].box[0]["rho"].data
                 ei = self.modelfile[mod].dataset[dat].box[0]["ei"].data
 
@@ -1448,7 +1447,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 data = self.Opa.kappa(T, P)
 
                 self.unit = "1/cm"
-            elif self.dataTypeCombo.currentText() == "Optical depth":
+            elif self.quantityCombo.currentText() == "Optical depth":
                 rho = self.modelfile[mod].dataset[dat].box[0]["rho"].data
                 ei = self.modelfile[mod].dataset[dat].box[0]["ei"].data
 
@@ -1473,6 +1472,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def planeCheck(self):
         # do not plot when changing min norm value (as plotted after changing max value)
+        sender = self.sender()
+        if sender.objectName() == "plane-Combo":
+            self.pos = None
         self.plot = False
         if self.dim == 3:
             if self.normCheck.checkState() == QtCore.Qt.Checked:
@@ -1633,37 +1635,31 @@ class MainWindow(QtWidgets.QMainWindow):
             pass
 
     def dataPlotPress(self, event):
-        if self.dim == 3 and event.xdata is not None and event.ydata is not None:
-            if self.planeCombo.currentText() == "xy":
-                idx = (np.abs(self.xc1 - event.xdata)).argmin()
-                idy = (np.abs(self.xc2 - event.ydata)).argmin()
-                if self.crossCheck.isChecked():
-                    print("in")
-                    sc.PlotWidget.lP(event.xdata, event.ydata, self.x1min, self.x1max, self.x2min, self.x2max)
-                    print("in after")
-                print("out")
-                self.x1Slider.setValue(idx)
-                self.x2Slider.setValue(idy)
+        if event.xdata is not None and event.ydata is not None:
+            self.pos = np.array([event.xdata, event.ydata])
+            if self.dim == 3:
+                if self.planeCombo.currentText() == "xy":
+                    idx = (np.abs(self.xc1 - event.xdata)).argmin()
+                    idy = (np.abs(self.xc2 - event.ydata)).argmin()
 
-            elif self.planeCombo.currentText() == "xz":
-                idx = (np.abs(self.xc1 - event.xdata)).argmin()
-                idz = (np.abs(self.xc3 - event.ydata)).argmin()
+                    self.x1Slider.setValue(idx)
+                    self.x2Slider.setValue(idy)
 
-                if self.crossCheck.isChecked():
-                    sc.PlotWidget.linePlot(idx, idz, self.x1min, self.x1max, self.x3min, self.x3max)
+                elif self.planeCombo.currentText() == "xz":
+                    idx = (np.abs(self.xc1 - event.xdata)).argmin()
+                    idz = (np.abs(self.xc3 - event.ydata)).argmin()
 
-                self.x1Slider.setValue(idx)
-                self.x3Slider.setValue(idz)
+                    self.x1Slider.setValue(idx)
+                    self.x3Slider.setValue(idz)
 
-            elif self.planeCombo.currentText() == "yz":
-                idy = (np.abs(self.xc2 - event.xdata)).argmin()
-                idz = (np.abs(self.xc3 - event.ydata)).argmin()
+                elif self.planeCombo.currentText() == "yz":
+                    idy = (np.abs(self.xc2 - event.xdata)).argmin()
+                    idz = (np.abs(self.xc3 - event.ydata)).argmin()
 
-                if self.crossCheck.isChecked():
-                    sc.PlotWidget.linePlot(idy, idz, self.x2min, self.x2max, self.x3min, self.x3max)
-
-                self.x2Slider.setValue(idy)
-                self.x3Slider.setValue(idz)
+                    self.x2Slider.setValue(idy)
+                    self.x3Slider.setValue(idz)
+            if self.crossCheck.isChecked():
+                self.generalPlotRoutine()
 
     def normChange(self):
         if self.planeCombo.currentText() == "xy":
@@ -1750,9 +1746,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.timeSlider.setValue(self.timind)
 
-    # ----------------------------------------------
+    # -----------------------------------------------
     # --- Change of 2D- to 3D-plot and vice versa ---
-    # ----------------------------------------------
+    # -----------------------------------------------
 
     def plotDimensionChange(self):
         sender = self.sender()
@@ -1766,29 +1762,29 @@ class MainWindow(QtWidgets.QMainWindow):
             self.plotBox.hide()
 #            self.threeDPlotBox.show()
 
-    # ----------------------------------------------------
-    # --- Function if datatype is changed by combo box ---
-    # ----------------------------------------------------
+    # ----------------------------------------
+    # --- Change of quantity via combo box ---
+    # ----------------------------------------
 
-    def dataTypeChange(self):
+    def quantityChange(self):
 
         self.boxind = -1
 
-        for i in range(len(self.dataTypeList)):
-            if self.dataTypeCombo.currentText() in self.dataTypeList[i].keys():
+        for i in range(len(self.quantityList)):
+            if self.quantityCombo.currentText() in self.quantityList[i].keys():
                 self.boxind = i
                 break
 
         # --- First case: .mean file (all data from file)
         # --- Second case: .full or .end file and in first component of
-        # ---               dataTypeList (data from file)
+        # ---               quantityList (data from file)
         # --- Else: Data from post computed arrays (not yet implemented)
 
-        self.typeind = self.dataTypeList[self.boxind][self.\
-                                         dataTypeCombo.currentText()]
+        self.typeind = self.quantityList[self.boxind][self.quantityCombo.currentText()]
 
         # ---------------------------------------------------------------------
         # --- get new globally minimal and maximal values for normalization ---
+        # ---------------------------------------------------------------------
 
         if self.normCheck.checkState() == QtCore.Qt.Checked:
             self.getTotalMinMax()
@@ -1868,13 +1864,14 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.w = self.modelfile[self.modelind].dataset[self.dsind].box[0]["v3"].data
             elif self.vpMagRadio.isChecked():
                 self.vecunit = 'G'
+                const = math.sqrt(4 * np.pi)
                 x1 = self.modelfile[0].dataset[0].box[0]["xb1"].data.squeeze() * 1.e-5
                 x2 = self.modelfile[0].dataset[0].box[0]["xb2"].data.squeeze() * 1.e-5
                 x3 = self.modelfile[0].dataset[0].box[0]["xb3"].data.squeeze() * 1.e-5
 
-                bb1 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb1"].data
-                bb2 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb2"].data
-                bb3 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb3"].data
+                bb1 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb1"].data*const
+                bb2 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb2"].data*const
+                bb3 = self.modelfile[self.modelind].dataset[self.dsind].box[0]["bb3"].data*const
 
                 self.u = ip.interp1d(x1, bb1, copy=False, assume_sorted=True)(self.xc1)
                 self.v = ip.interp1d(x2, bb2, axis=1, copy=False, assume_sorted=True)(self.xc2)
@@ -1888,6 +1885,10 @@ class MainWindow(QtWidgets.QMainWindow):
             self.generalPlotRoutine()
 
     def generalPlotRoutine(self):
+        if self.crossCheck.isChecked():
+            pos = self.pos
+        else:
+            pos = None
         if self.dim == 3:
             if self.threeDRadio.isChecked():
                 pass
@@ -1897,32 +1898,32 @@ class MainWindow(QtWidgets.QMainWindow):
 #                        self.v, self.w, float(self.vpXIncEdit.text()))
             elif self.twoDRadio.isChecked():
                 if self.planeCombo.currentText() == "xy":
-                    self.plotBox.plotFig(self.data[self.x3ind], self.x1min, self.x1max, self.x2min, self.x2max,
-                                         dim=self.dim, vmin=self.minNorm, vmax=self.maxNorm,
-                                         cmap=self.cmCombo.currentCmap)
+                    window = np.array([[self.x1min, self.x1max], [self.x2min, self.x2max]])
+                    self.plotBox.plotFig(self.data[self.x3ind], window, vmin=self.minNorm, vmax=self.maxNorm,
+                                         cmap=self.cmCombo.currentCmap, pos=pos)
                     if self.vpCheck.isChecked():
-                        self.plotBox.vectorPlot(self.xc1, self.xc2, self.u[self.x3ind, :, :], self.v[self.x3ind],
+                        self.plotBox.vectorPlot(self.xc1, self.xc2, self.u[self.x3ind], self.v[self.x3ind],
                                                 xinc=int(self.vpXIncEdit.text()), yinc=int(self.vpYIncEdit.text()),
                                                 scale=float(self.vpScaleEdit.text()),
-                                                alpha=float(self.vpAlphaEdit.text()), unit=self.vecunit)
+                                                alpha=float(self.vpAlphaEdit.text()))
                 elif self.planeCombo.currentText() == "xz":
-                    self.plotBox.plotFig(self.data[:, self.x2ind, :], self.x1min, self.x1max, self.x3min, self.x3max,
-                                         dim=self.dim, vmin=self.minNorm, vmax=self.maxNorm,
-                                         cmap=self.cmCombo.currentCmap)
+                    window = np.array([[self.x1min, self.x1max], [self.x3min, self.x3max]])
+                    self.plotBox.plotFig(self.data[:, self.x2ind, :], window, vmin=self.minNorm, vmax=self.maxNorm,
+                                         cmap=self.cmCombo.currentCmap, pos=pos)
                     if self.vpCheck.isChecked():
-                        self.plotBox.vectorPlot(self.xc1, self.xc3, self.u[:, self.x2ind, :], self.w[:, self.x2ind],
+                        self.plotBox.vectorPlot(self.xc1, self.xc3, self.u[:, self.x2ind], self.w[:, self.x2ind],
                                                 xinc=int(self.vpXIncEdit.text()), yinc=int(self.vpYIncEdit.text()),
                                                 scale=float(self.vpScaleEdit.text()),
-                                                alpha=float(self.vpAlphaEdit.text()), unit=self.vecunit)
+                                                alpha=float(self.vpAlphaEdit.text()))
                 elif self.planeCombo.currentText() == "yz":
-                    self.plotBox.plotFig(self.data[:, :, self.x1ind], self.x2min, self.x2max, self.x3min, self.x3max,
-                                         dim=self.dim, vmin=self.minNorm, vmax=self.maxNorm,
-                                         cmap=self.cmCombo.currentCmap)
+                    window = np.array([[self.x2min, self.x2max], [self.x3min, self.x3max]])
+                    self.plotBox.plotFig(self.data[:, :, self.x1ind], window, vmin=self.minNorm, vmax=self.maxNorm,
+                                         cmap=self.cmCombo.currentCmap, pos=pos)
                     if self.vpCheck.isChecked():
                         self.plotBox.vectorPlot(self.xc2, self.xc3, self.v[:, :, self.x1ind], self.w[:, :, self.x1ind],
-                                                xinc = int(self.vpXIncEdit.text()), yinc = int(self.vpYIncEdit.text()),
+                                                xinc=int(self.vpXIncEdit.text()), yinc=int(self.vpYIncEdit.text()),
                                                 scale=float(self.vpScaleEdit.text()),
-                                                alpha=float(self.vpAlphaEdit.text()), unit=self.vecunit)
+                                                alpha=float(self.vpAlphaEdit.text()))
                 else:
                     self.msgBox.setText("Plane could not be identified.")
                     self.msgBox.exec_()
@@ -1931,28 +1932,31 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.msgBox.exec_()
         elif self.dim == 2:
             if self.direction == 0:
-                self.plotBox.plotFig(self.data[0], self.x1min, self.x1max, self.x2min, self.x2max, dim=self.dim,
-                                     vmin=self.minNorm, vmax=self.maxNorm, cmap=self.cmCombo.currentCmap)
+                window = np.array([[self.x1min, self.x1max], [self.x2min, self.x2max]])
+                self.plotBox.plotFig(self.data[0], window, vmin=self.minNorm, vmax=self.maxNorm,
+                                     cmap=self.cmCombo.currentCmap, pos=pos)
             elif self.direction == 1:
-                self.plotBox.plotFig(self.data[:, 0], self.x1min, self.x1max, self.x3min, self.x3max, dim=self.dim,
-                                     vmin=self.minNorm, vmax=self.maxNorm, cmap=self.cmCombo.currentCmap)
+                window = np.array([[self.x1min, self.x1max], [self.x3min, self.x3max]])
+                self.plotBox.plotFig(self.data[:, 0], window, vmin=self.minNorm, vmax=self.maxNorm,
+                                     cmap=self.cmCombo.currentCmap, pos=pos)
             elif self.direction == 2:
-                self.plotBox.plotFig(self.data[:, :, 0], self.x2min, self.x2max, self.x3min, self.x3max, dim=self.dim,
-                                     vmin=self.minNorm, vmax=self.maxNorm, cmap=self.cmCombo.currentCmap)
+                window = np.array([[self.x2min, self.x2max], [self.x3min, self.x3max]])
+                self.plotBox.plotFig(self.data[:, :, 0], window, vmin=self.minNorm, vmax=self.maxNorm,
+                                     cmap=self.cmCombo.currentCmap, pos=pos)
             else:
                 self.msgBox.setText("Direction could not be identified.")
                 self.msgBox.exec_()
 
         elif self.dim == 1:
             if self.direction == 0:
-                self.plotBox.plotFig(self.data[:, 0, 0], self.x3min, self.x3max, x2min=np.min(self.data),
-                                     x2max=np.max(self.data), dim=self.dim, cmap=self.cmCombo.currentCmap)
+                window = np.array([self.x3min, self.x3max])
+                self.plotBox.plotFig(self.data[:, 0, 0], window)
             elif self.direction == 1:
-                self.plotBox.plotFig(self.data[0, :, 0], self.x2min, self.x2max, x2min=np.min(self.data),
-                                     x2max=np.max(self.data), dim=self.dim, cmap=self.cmCombo.currentCmap)
+                window = np.array([self.x2min, self.x2max])
+                self.plotBox.plotFig(self.data[0, :, 0], window)
             elif self.direction == 2:
-                self.plotBox.plotFig(self.data[0, 0], self.x1min, self.x1max, x2min=np.min(self.data),
-                                     x2max=np.max(self.data), dim=self.dim, cmap=self.cmCombo.currentCmap)
+                window = np.array([self.x1min, self.x1max])
+                self.plotBox.plotFig(self.data[0, 0], window)
             else:
                 self.msgBox.setText("Direction could not be identified.")
                 self.msgBox.exec_()

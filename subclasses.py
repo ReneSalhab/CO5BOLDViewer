@@ -77,33 +77,23 @@ class showImageSaveDialog(QtWidgets.QMainWindow):
             # --- Components depict box number from filestructure (see manual
             # --- of Co5bold)
 
-            self.dataTypeList = ({"Bolometric intensity":"intb3_r",
-                                  "Intensity (bin 1)": "int01b3_r",
-                                  "Intensity (bin 2)": "int02b3_r",
-                                  "Intensity (bin 3)": "int03b3_r",
-                                  "Intensity (bin 4)": "int04b3_r",
-                                  "Intensity (bin 5)": "int05b3_r"},
-                                {"Avg. density (x1)": "rho_xmean",
-                                 "Squared avg. density (x1)": "rho_xmean2"})
+            self.dataTypeList = ({"Bolometric intensity":"intb3_r", "Intensity (bin 1)": "int01b3_r",
+                                  "Intensity (bin 2)": "int02b3_r", "Intensity (bin 3)": "int03b3_r",
+                                  "Intensity (bin 4)": "int04b3_r", "Intensity (bin 5)": "int05b3_r"},
+                                {"Avg. density (x1)": "rho_xmean", "Squared avg. density (x1)": "rho_xmean2"})
          elif ".full" or ".end" in self.inputfile[0].name:
             self.meanfile = False
             # --- content from .full or .end file (has one box per dataset) ---
             # --- First tuple component: Data from file
             # --- Second tuple component: Data from post computed arrays
 
-            self.dataTypeList = ({"Density":"rho","Internal energy": "ei",
-                                  "Velocity x-component": "v1",
-                                  "Velocity y-component": "v2",
-                                  "Velocity z-component": "v3"},
-                                 {"Velocity, absolute": "vabs",
-                                  "Velocity, horizontal": "vhor",
-                                  "Kinetic energy": "kinEn",
-                                  "Momentum": "momentum",
-                                  "Vert. mass flux (Rho*V3)": "massfl",
-                                  "Temperature": "temp","Entropy": "entr",
+            self.dataTypeList = ({"Density": "rho", "Internal energy": "ei", "Velocity x-component": "v1",
+                                  "Velocity y-component": "v2", "Velocity z-component": "v3"},
+                                 {"Velocity, absolute": "vabs", "Velocity, horizontal": "vhor",
+                                  "Kinetic energy": "kinEn", "Momentum": "momentum",
+                                  "Vert. mass flux (Rho*V3)": "massfl", "Temperature": "temp","Entropy": "entr",
                                   "Pressure": "press",
-                                  "Adiabatic coefficient G1": "gamma1",
-                                  "Adiabatic coefficient G3": "gamma3",
+                                  "Adiabatic coefficient G1": "gamma1", "Adiabatic coefficient G3": "gamma3",
                                   "Sound velocity": "c_s","Mach Number": "mach",
                                   "Mean molecular weight": "mu",
                                   "Opacity": "opa","Optical depth": "optdep",
@@ -961,39 +951,71 @@ class PlotWidget(FigureCanvas):
 
         self.image = self.ax.imshow(data, interpolation="bilinear", origin="bottom")
 
-    def plotFig(self, data, x1min, x1max, x2min=None, x2max=None, vmin=None,
-                vmax=None, parent=None, dim=2, cmap = "jet"):
+    def plotFig(self, data, window=None, vmin=None, vmax=None, cmap="inferno", pos=None):
+        """
+        Description
+        -----------
+            Plots data.
+        :param data: ndarray, 2D, or 1D. Data that is plotted
+        :param window: ndarray, shape is (2, 2). Extent of the plot.
+        :param vmin: float, minimum value for normalizing the plot of
+        :param vmax: float, minimum value for normalizing the plot of
+        :param cmap: 
+        
+        :param pos: 
+        :return: 
+        """
+        valer = ValueError("Either window is not None, or an ndarray, or has wrong shape.")
+
+        if vmin is None:
+            vmin = data.min()
+        if vmax is None:
+            vmax = data.max()
+
+        if not isinstance(data, np.ndarray):
+            data = np.array(data)
         self.ax.cla()
 
-        if dim > 1:
-            self.image = self.ax.imshow(data, interpolation="bilinear",
-                           origin="bottom", extent=(x1min, x1max, x2min, x2max),
-                           norm=cl.Normalize(vmin=vmin, vmax=vmax), cmap=cmap)
+        if data.ndim == 2:
+            if window is None:
+                self.image = self.ax.imshow(data, interpolation="bilinear", origin="bottom", cmap=cmap,
+                                            norm=cl.Normalize(vmin=vmin, vmax=vmax))
+
+                if pos is not None:
+                    self.image.axes.axvline(x=pos[0], ymin=data.min(axis=1), ymax=data.max(axis=1), color="black")
+                    self.ax.axvline(x=pos[0], ymin=data.min(axis=1), ymax=data.max(axis=1), linestyles='dashed',
+                                    color="white")
+                    self.ax.hlines(y=pos[1], xmin=data.min(axis=0), xmax=data.max(axis=0), color="black")
+                    self.ax.hlines(y=pos[1], xmin=data.min(axis=0), xmax=data.max(axis=0), linestyles='dashed',
+                                   color="white")
+            elif np.shape(window) == (2, 2):
+                self.image = self.ax.imshow(data, interpolation="bilinear", origin="bottom", cmap=cmap,
+                                            extent=(window[0, 0], window[0, 1], window[1, 0], window[1, 1]),
+                                            norm=cl.Normalize(vmin=vmin, vmax=vmax))
+                if pos is not None:
+                    self.ax.vlines(x=pos[0], ymin=window[1, 0], ymax=window[1, 1], color="black")
+                    self.ax.vlines(x=pos[0], ymin=window[1, 0], ymax=window[1, 1], color="white", linestyles='dashed')
+                    self.ax.hlines(y=pos[1], xmin=window[0, 0], xmax=window[0, 1], color="black")
+                    self.ax.hlines(y=pos[1], xmin=window[0, 0], xmax=window[0, 1], color="white", linestyles='dashed')
+            else:
+                raise valer
+        elif data.dim == 1:
+            if window is None:
+                self.plot = self.ax.plot(data)
+            elif np.shape(window) == (2,):
+                x = np.linspace(window[0], window[1], len(data), endpoint=True)
+                self.plot = self.ax.plot(x, data)
+            else:
+                raise valer
         else:
-            x = np.linspace(x1min, x1max, len(data))
-            self.plot = self.ax.plot(x, data)
+            raise ValueError("data has wrong dimension!")
 
         self.draw()
     
-    def lP(self, xv, yv, x1min, x1max, x2min, x2max):
-        pass
-#        print("plot")
-
-#        self.xl = self.ax.axvline(x=xv,xmin=x1min,xmax=x1max)
-#        self.yl = self.ax.axhline(y=yv,ymin=x2min,ymax=x2max)
-
-#        self.ax.plot((x1min,yv),(x1max,yv),'r-')
-#        self.ax.plot((xv,x2min),(xv,x2max),'r-')
-
-#        self.draw()
-
-    def vectorPlot(self, x, y, u, v, xinc=1, yinc=1, scale=1.0, alpha=1.0,
-                   unit=''):
-        x, y = np.meshgrid(x,y)
-        self.vector = self.ax.quiver(x[::xinc,::yinc], y[::xinc,::yinc],
-                                     u[::xinc,::yinc], v[::xinc,::yinc],
-                                     scale=1.0/scale, alpha=alpha, edgecolor='k',
-                                     facecolor='white', linewidth=0.5)
+    def vectorPlot(self, x, y, u, v, xinc=1, yinc=1, scale=1.0, alpha=1.0):
+        x, y = np.meshgrid(x, y)
+        self.vector = self.ax.quiver(x[::xinc, ::yinc], y[::xinc, ::yinc], u[::xinc, ::yinc], v[::xinc, ::yinc],
+                                     scale=1.0/scale, alpha=alpha, edgecolor='k', facecolor='white', linewidth=0.5)
 
         self.draw()
 
