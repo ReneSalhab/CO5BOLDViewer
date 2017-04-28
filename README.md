@@ -1,4 +1,4 @@
-# CO5BOLDViewer 0.8.4.1
+# CO5BOLDViewer 0.8.5
 
 A QT-based viewer of .uio-data used by CO5BOLD. Written in Python 3.5.
 
@@ -55,6 +55,13 @@ or
 will start the CO5BOLDViewer. If something goes wrong, please let me know.
 
 ## Change-Log
+
+### Version 0.8.5
+
+- FIX: When aborting file-load, error occurred
+- FIX: menu-bar was not usable under MacOS. Now it is in the window of CO5BOLDViewer and working.
+- NEW: tau=1 location at side-view plotable, of eos and opa are provided
+- NEW: new setup_np.py (not parallel) provided, if compilation fails with setup.py, because of openmp
 
 ### Version 0.8.4
 

@@ -542,25 +542,25 @@ class showImageSaveDialog(QtWidgets.QMainWindow):
             self.plotConfLayoutRange.addWidget(self.x2EditHigh,2,4)
             self.plotConfLayoutRange.addWidget(self.actualx2LabelHigh,2,5)
 
-            self.plotConfLayoutRange.addWidget(x3RangeLabel,3,0)
-            self.plotConfLayoutRange.addWidget(self.x3EditLow,3,1)
-            self.plotConfLayoutRange.addWidget(self.actualx3LabelLow,3,2)
-            self.plotConfLayoutRange.addWidget(self.x3RangeSlider,3,3)
-            self.plotConfLayoutRange.addWidget(self.x3EditHigh,3,4)
-            self.plotConfLayoutRange.addWidget(self.actualx3LabelHigh,3,5)
+            self.plotConfLayoutRange.addWidget(x3RangeLabel, 3, 0)
+            self.plotConfLayoutRange.addWidget(self.x3EditLow, 3, 1)
+            self.plotConfLayoutRange.addWidget(self.actualx3LabelLow, 3, 2)
+            self.plotConfLayoutRange.addWidget(self.x3RangeSlider, 3, 3)
+            self.plotConfLayoutRange.addWidget(self.x3EditHigh, 3, 4)
+            self.plotConfLayoutRange.addWidget(self.actualx3LabelHigh, 3, 5)
 
             # -----------------------------------------------------------------
 
-            self.plotConfLayout.addWidget(self.plotConfCurrentWid,0,0)
-            self.plotConfLayout.addWidget(self.plotConfSingleWid,0,0)
-            self.plotConfLayout.addWidget(self.plotConfRangeWid,0,0)
-            self.plotConfLayout.addWidget(self.dataSettingGroup,1,0)
+            self.plotConfLayout.addWidget(self.plotConfCurrentWid, 0, 0)
+            self.plotConfLayout.addWidget(self.plotConfSingleWid, 0, 0)
+            self.plotConfLayout.addWidget(self.plotConfRangeWid, 0, 0)
+            self.plotConfLayout.addWidget(self.dataSettingGroup, 1, 0)
 
             plotConfGroup.setLayout(self.plotConfLayout)
 
-            mainGrid.addWidget(saveConfGroup,0,0)
-            mainGrid.addWidget(plotConfGroup,0,1)
-            mainGrid.addWidget(saveCancelWid,1,1)
+            mainGrid.addWidget(saveConfGroup, 0, 0)
+            mainGrid.addWidget(plotConfGroup, 0, 1)
+            mainGrid.addWidget(saveCancelWid, 1, 1)
 
             self.plotConfCurrentWid.setVisible(True)
             self.plotConfRangeWid.setVisible(False)
@@ -951,7 +951,7 @@ class PlotWidget(FigureCanvas):
 
         self.image = self.ax.imshow(data, interpolation="bilinear", origin="bottom")
 
-    def plotFig(self, data, window=None, vmin=None, vmax=None, cmap="inferno", pos=None):
+    def plotFig(self, data, window=None, vmin=None, vmax=None, cmap="inferno", pos=None, tauUnity=None):
         """
         Description
         -----------
@@ -999,6 +999,10 @@ class PlotWidget(FigureCanvas):
                     self.ax.hlines(y=pos[1], xmin=window[0, 0], xmax=window[0, 1], color="white", linestyles='dashed')
             else:
                 raise valer
+            if isinstance(tauUnity, tuple):
+                if isinstance(tauUnity[1], np.ndarray):
+                    if tauUnity[1].ndim == 1:
+                        self.ax.plot(tauUnity[0], tauUnity[1])
         elif data.dim == 1:
             if window is None:
                 self.plot = self.ax.plot(data)

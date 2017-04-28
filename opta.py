@@ -181,6 +181,7 @@ class Opac:
                 :param rho: ndarray, mass-density
                 :param z: 1D ndarray, positions of desired values. Has to have the same length like the axis of rho and
                           the other provided values that have to be integrated (rho and kappa, or T and P).
+                           Attention: Must be in cgs!
                 :param axis: int, optional, axis along the integration will take place. Default: -1
                 :param mode: int, optional, if mode=0: cubic integration, else linear integration (see CAT). Default: 0
                 :param kwargs:
@@ -192,7 +193,7 @@ class Opac:
                     :param iBand: int, optional, opacity-band. If kappa is not provided, but T and P, the opacity will
                                   be computed first. Will be ignored, if kappa is provided. Default: 0
                     :param zb: 1D ndarray, optional, boundary-centered z-positions. If not provided, cell-heights will
-                               be computed with z.
+                               be computed with z. Attention: Must be in cgs!
 
             Output
             ------
@@ -250,7 +251,6 @@ class Opac:
         trans = list(range(dim))
         trans[-1], trans[axis] = trans[axis], trans[-1]
         kaprho = np.transpose(kaprho, axes=trans)
-        dz = dz
 
         if dim == 3:
             return np.transpose(eosx.tau3D(kaprho, dz, radHtautop), axes=trans)

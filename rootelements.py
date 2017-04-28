@@ -32,7 +32,7 @@ from eosinter import EosInter
 # noinspection PyUnresolvedReferences
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
-        self.version = "0.8.4.1"
+        self.version = "0.8.5"
         super(MainWindow, self).__init__()
 
         self.initUI()
@@ -117,10 +117,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.msgBox = QtWidgets.QMessageBox()
 
-        # --- eos-file ---
+        # --- eos- and opta-file-control variables ---
 
         self.eos = False
         self.opa = False
+
+        self.tauheight = None   # is height of tau=1-surface
 
         # --- plot-control ---
 
@@ -133,19 +135,21 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # --- "Load EOS-File" button config
 
-        openEosAction = QtWidgets.QAction(QtGui.QIcon("open.png"), "Load &EOS File", self)
-        openEosAction.setShortcut("Ctrl+E")
-        openEosAction.setStatusTip("Open an equation of state file (.eos)")
-        openEosAction.setToolTip("Open an eos-file.")
-        openEosAction.triggered.connect(self.showLoadEosDialog)
+        self.openEosAction = QtWidgets.QAction(QtGui.QIcon("open.png"), "Load &EOS File", self)
+        self.openEosAction.setShortcut("Ctrl+E")
+        self.openEosAction.setStatusTip("Open an equation of state file (.eos)")
+        self.openEosAction.setToolTip("Open an eos-file.")
+        self.openEosAction.triggered.connect(self.showLoadEosDialog)
+        self.openEosAction.setDisabled(True)
 
         # --- "Load opacity file" button config
 
-        openOpaAction = QtWidgets.QAction(QtGui.QIcon("open.png"), "Load &opacity File", self)
-        openOpaAction.setShortcut("Ctrl+O")
-        openOpaAction.setStatusTip("Open an opacity file (.opta)")
-        openOpaAction.setToolTip("Open an opacity file.")
-        openOpaAction.triggered.connect(self.showLoadOpaDialog)
+        self.openOpaAction = QtWidgets.QAction(QtGui.QIcon("open.png"), "Load &opacity File", self)
+        self.openOpaAction.setShortcut("Ctrl+O")
+        self.openOpaAction.setStatusTip("Open an opacity file (.opta)")
+        self.openOpaAction.setToolTip("Open an opacity file.")
+        self.openOpaAction.triggered.connect(self.showLoadOpaDialog)
+        self.openOpaAction.setDisabled(True)
 
         # --- "Load Model" button config
 
@@ -187,8 +191,8 @@ class MainWindow(QtWidgets.QMainWindow):
         # --- "File" drop-down menu elements ---
 
         fileMenu = QtWidgets.QMenu("&File", self)
-        fileMenu.addAction(openEosAction)
-        fileMenu.addAction(openOpaAction)
+        fileMenu.addAction(self.openEosAction)
+        fileMenu.addAction(self.openOpaAction)
         fileMenu.addAction(openModelAction)
         fileMenu.addAction(exitAction)
 
@@ -216,6 +220,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.fname, fil = QtWidgets.QFileDialog.getOpenFileNames(self, "Open Model File", self.stdDirMod,
                                                                  "Model files (*.full *.end *.sta);;Mean files(*.mean)")
+        if len(self.fname) == 0:
+            return
         self.stdDirMod = os.sep.join(self.fname[0].split(os.sep)[:-1])
         Nfiles = len(self.fname)
 
@@ -261,6 +267,9 @@ class MainWindow(QtWidgets.QMainWindow):
                                                   ("Velocity z-component", "v3"), ("Velocity, absolute", "vabs"),
                                                   ("Velocity, horizontal", "vhor"), ("Kinetic energy", "kinEn"),
                                                   ("Momentum", "momentum"), ("Vert. mass flux (Rho*V3)", "massfl")])]
+
+                self.openOpaAction.setDisabled(False)
+                self.openEosAction.setDisabled(False)
                 mhd = False
                 for mod in self.modelfile:
                     if "bb1" in mod.dataset[0].box[0]:
@@ -322,6 +331,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         fname, fil = QtWidgets.QFileDialog.getSaveFileName(self, "Save current slice (HD5)", self.stdDir,
                                                            "HDF5 file (*.h5);;FITS file (*.fits)")
+        if len(fname) == 0:
+            return
 
         if fname:
             QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
@@ -346,6 +357,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.eosname = QtWidgets.QFileDialog.getOpenFileName(self, "Open EOS File", self.stdDirEos,
                                                              "EOS files (*.eos)")[0]
+        if len(self.eosname) == 0:
+            return
         self.stdDirEos = os.sep.join(self.eosname.split(os.sep)[:-1])
 
         if self.eosname:
@@ -366,6 +379,8 @@ class MainWindow(QtWidgets.QMainWindow):
             if self.opa:
                 self.quantityList[-1]["Opacity"] = "opa"
                 self.quantityList[-1]["Optical depth"] = "optdep"
+
+                self.tauUnityCheck.setDisabled(False)
             self.quantityCombo.addItems(self.quantityList[-1].keys())
 
             self.eos = True
@@ -380,6 +395,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.opaname = QtWidgets.QFileDialog.getOpenFileName(self, "Open opacity File", self.stdDirOpa,
                                                              "opacity files (*.opta)")[0]
+        if len(self.opaname) == 0:
+            return
         self.stdDirOpa = os.sep.join(self.opaname.split(os.sep)[:-1])
 
         if self.opaname:
@@ -393,6 +410,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 self.quantityCombo.addItem("Opacity")
                 self.quantityCombo.addItem("Optical depth")
+
+                self.tauUnityCheck.setDisabled(False)
             self.opa = True
 
             QtWidgets.QApplication.restoreOverrideCursor()
@@ -709,10 +728,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.twoDRadio.toggled.connect(self.plotDimensionChange)
 
         threeDTitle = QtWidgets.QLabel("3D:")
+        threeDTitle.setDisabled(True)
         self.threeDRadio = QtWidgets.QRadioButton(self.centralWidget)
         self.threeDRadio.setDisabled(True)
         self.threeDRadio.setObjectName("3DRadio")
         self.threeDRadio.toggled.connect(self.plotDimensionChange)
+
+        tauUnityTitle = QtWidgets.QLabel("tau=1:")
+        self.tauUnityCheck = QtWidgets.QCheckBox(self.centralWidget)
+        self.tauUnityCheck.setDisabled(True)
+        self.tauUnityCheck.setObjectName("tauUnityCheck")
+        self.tauUnityCheck.stateChanged.connect(self.tauUnityChange)
 
         # --- Setup of data-presentation-layout ---
 
@@ -741,6 +767,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
         dataParamsLayout.addWidget(threeDTitle, 5, 0)
         dataParamsLayout.addWidget(self.threeDRadio, 5, 1)
+
+        dataParamsLayout.addWidget(tauUnityTitle, 4, 2)
+        dataParamsLayout.addWidget(self.tauUnityCheck, 4, 3)
 
         # ---------------------------------------------------------------------
         # ------------- Groupbox with vector plot parameters ------------------
@@ -926,7 +955,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.crossCheck.setDisabled(False)
 
         # --------------------------------------
-        # --- update parameters from widgets ---
+        # ---- update parameters of widgets ----
         # --------------------------------------
 
         self.timind = self.timeSlider.value()
@@ -968,8 +997,11 @@ class MainWindow(QtWidgets.QMainWindow):
             self.actualX2Label.setDisabled(False)
             self.actualX3Label.setDisabled(False)
 
-            self.threeDRadio.setDisabled(False)
+            # self.threeDRadio.setDisabled(False)
             self.twoDRadio.setDisabled(False)
+
+            if self.opa and self.eos:
+                self.tauUnityCheck.setDisabled(False)
         if self.dim == 2:
             self.planeCombo.setDisabled(True)
             self.cmCombo.setDisabled(False)
@@ -988,6 +1020,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
             self.threeDRadio.setDisabled(True)
             self.twoDRadio.setDisabled(True)
+
+            self.tauUnityCheck.setDisabled(False)
 
             self.direction = self.modelfile[self.modelind].dataset[self.dsind].box[self.boxind][self.typeind].shape.\
                 index(1)
@@ -1016,6 +1050,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.threeDRadio.setDisabled(True)
             self.twoDRadio.setDisabled(True)
 
+            self.tauUnityCheck.setDisabled(True)
+
             self.direction = bisect.bisect(self.modelfile[self.modelind].dataset[self.dsind].box[self.boxind][self.
                                            typeind].shape, 2)
             if self.direction == 0:
@@ -1043,6 +1079,21 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.planeCheck()
         print("Time needed for initial load:", time.time()-start)
+
+    def tauUnityChange(self):
+        if self.tauUnityCheck.isChecked():
+            if self.eos and self.opa:
+                rho = self.modelfile[self.modelind].dataset[self.dsind].box[0]["rho"].data
+                ei = self.modelfile[self.modelind].dataset[self.dsind].box[0]["ei"].data
+                P, T = self.Eos.PandT(rho, ei)
+
+                tau = self.Opa.tau(rho, self.xc3*1.e5, axis=0, T=T, P=P, zb=self.xb3*1.e5)
+                self.tauheight = self.Opa.height(self.xc3, 1.0, axis=0, tau=tau).T
+                self.generalPlotRoutine()
+            else:
+                self.msgBox.setText("EOS or opacity-file not loaded!\nEOS: {0}\topacity: {1}".format(self.eos, self.opa))
+        else:
+            self.tauheight = None
 
     def getTotalMinMax(self):
         if self.dim == 3:
@@ -1545,6 +1596,9 @@ class MainWindow(QtWidgets.QMainWindow):
             fname = self.fname[self.modelind].split("/")[-1]
             self.currentFileLabel.setText(fname)
 
+            if self.tauUnityCheck.isChecked():
+                self.tauUnityChange()
+
             self.data = self.setPlotData(self.modelind, self.dsind)
             self.sameNorm = True
 
@@ -1902,8 +1956,16 @@ class MainWindow(QtWidgets.QMainWindow):
                                                 alpha=float(self.vpAlphaEdit.text()))
                 elif self.planeCombo.currentText() == "xz":
                     window = np.array([[self.x1min, self.x1max], [self.x3min, self.x3max]])
-                    self.plotBox.plotFig(self.data[:, self.x2ind, :], window, vmin=self.minNorm, vmax=self.maxNorm,
-                                         cmap=self.cmCombo.currentCmap, pos=pos)
+
+                    if self.tauUnityCheck.isChecked():
+                        self.plotBox.plotFig(self.data[:, self.x2ind, :], window, vmin=self.minNorm, vmax=self.maxNorm,
+                                             cmap=self.cmCombo.currentCmap, pos=pos,
+                                             tauUnity=(self.xc1, self.tauheight[self.x2ind]))
+                        print(self.tauheight[self.x2ind])
+                    else:
+                        self.plotBox.plotFig(self.data[:, self.x2ind, :], window, vmin=self.minNorm, vmax=self.maxNorm,
+                                             cmap=self.cmCombo.currentCmap, pos=pos)
+
                     if self.vpCheck.isChecked():
                         self.plotBox.vectorPlot(self.xc1, self.xc3, self.u[:, self.x2ind], self.w[:, self.x2ind],
                                                 xinc=int(self.vpXIncEdit.text()), yinc=int(self.vpYIncEdit.text()),
@@ -1911,8 +1973,14 @@ class MainWindow(QtWidgets.QMainWindow):
                                                 alpha=float(self.vpAlphaEdit.text()))
                 elif self.planeCombo.currentText() == "yz":
                     window = np.array([[self.x2min, self.x2max], [self.x3min, self.x3max]])
-                    self.plotBox.plotFig(self.data[:, :, self.x1ind], window, vmin=self.minNorm, vmax=self.maxNorm,
-                                         cmap=self.cmCombo.currentCmap, pos=pos)
+                    if self.tauUnityCheck.isChecked():
+                        self.plotBox.plotFig(self.data[:, :, self.x1ind], window, vmin=self.minNorm, vmax=self.maxNorm,
+                                             cmap=self.cmCombo.currentCmap, pos=pos,
+                                             tauUnity=(self.xc2, self.tauheight[:, self.x1ind]))
+                        print(self.tauheight[:, self.x1ind])
+                    else:
+                        self.plotBox.plotFig(self.data[:, :, self.x1ind], window, vmin=self.minNorm, vmax=self.maxNorm,
+                                             cmap=self.cmCombo.currentCmap, pos=pos)
                     if self.vpCheck.isChecked():
                         self.plotBox.vectorPlot(self.xc2, self.xc3, self.v[:, :, self.x1ind], self.w[:, :, self.x1ind],
                                                 xinc=int(self.vpXIncEdit.text()), yinc=int(self.vpYIncEdit.text()),
