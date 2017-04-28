@@ -29,9 +29,10 @@ import subclasses as sc
 from eosinter import EosInter
 
 
+# noinspection PyUnresolvedReferences
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
-        self.version = "0.8.4"
+        self.version = "0.8.4.1"
         super(MainWindow, self).__init__()
 
         self.initUI()
@@ -181,6 +182,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # --- Initialize menubar ---
 
         menubar = QtWidgets.QMenuBar(self)
+        menubar.setNativeMenuBar(False)
 
         # --- "File" drop-down menu elements ---
 
@@ -486,7 +488,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # ---------------- Groupbox with position components ------------------
         # ---------------------------------------------------------------------
 
-        posGroup = QtWidgets.QGroupBox("Position", self.centralWidget)
+        posGroup = QtWidgets.QGroupBox("Position parameters", self.centralWidget)
         posLayout = QtWidgets.QGridLayout(posGroup)
         posGroup.setLayout(posLayout)
 
@@ -609,7 +611,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # -------------- Groupbox with data specific widgets ------------------
         # ---------------------------------------------------------------------
 
-        dataParamsGroup = QtWidgets.QGroupBox("Data type and presentation", self.centralWidget)
+        dataParamsGroup = QtWidgets.QGroupBox("Data specific and presentation parameters", self.centralWidget)
         dataParamsLayout = QtWidgets.QGridLayout(dataParamsGroup)
         dataParamsGroup.setLayout(dataParamsLayout)
 
@@ -621,14 +623,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.quantityCombo.setObjectName("quantity-Combo")
         self.quantityCombo.activated.connect(self.quantityChange)
 
-        quantityLabel = QtWidgets.QLabel("Data type:")
+        quantityLabel = QtWidgets.QLabel("Quantity:")
 
         # --- ComboBox for colormap selection ---
 
         self.cmCombo = QtWidgets.QComboBox(self.centralWidget)
         self.cmCombo.clear()
         self.cmCombo.setDisabled(True)
-        self.cmCombo.activated.connect(self.cmComboChange)
+        self.cmCombo.activated.connect(self.invertCM)
         self.cmCombo.addItems(self.cmaps)
 
         # --- default colormap (not available in older matplotlib versions)
@@ -816,7 +818,8 @@ class MainWindow(QtWidgets.QMainWindow):
         vectorPlotLayout.addWidget(self.vpAlphaEdit, 3, 4)
 
         # ---------------------------------------------------------------------
-        # --- Plot window ---
+        # ---------------------------- Plot window ----------------------------
+        # ---------------------------------------------------------------------
 
         self.plotBox = sc.PlotWidget(self.centralWidget)
         self.plotBox.mpl_connect("motion_notify_event", self.dataPlotMotion)
@@ -922,8 +925,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.mathCombo.setDisabled(False)
         self.crossCheck.setDisabled(False)
 
-        # -----------------------------------
+        # --------------------------------------
         # --- update parameters from widgets ---
+        # --------------------------------------
 
         self.timind = self.timeSlider.value()
         self.currentTimeEdit.setText(str(self.timind).rjust(4))
@@ -985,8 +989,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.threeDRadio.setDisabled(True)
             self.twoDRadio.setDisabled(True)
 
-            self.direction = self.modelfile[self.modelind].dataset[self.dsind].box[self.boxind][self.typeind].\
-                shape.index(1)
+            self.direction = self.modelfile[self.modelind].dataset[self.dsind].box[self.boxind][self.typeind].shape.\
+                index(1)
             if self.direction == 0:
                 self.x3ind = 0
             elif self.direction == 1:
@@ -1148,15 +1152,13 @@ class MainWindow(QtWidgets.QMainWindow):
             elif self.quantityCombo.currentText() == "Magnetic field By":
                 bb2 = self.modelfile[mod].dataset[dat].box[0]["bb2"].data
 
-                data = ip.interp1d(self.xb2, bb2, axis=1, copy=False, assume_sorted=True)(self.xc2) *\
-                            math.sqrt(const)
+                data = ip.interp1d(self.xb2, bb2, axis=1, copy=False, assume_sorted=True)(self.xc2)*math.sqrt(const)
                 self.unit = "G"
 
             elif self.quantityCombo.currentText() == "Magnetic field Bz":
                 bb3 = self.modelfile[mod].dataset[dat].box[0]["bb3"].data
 
-                data = ip.interp1d(self.xb3, bb3, axis=0, copy=False, assume_sorted=True)(self.xc3) *\
-                            math.sqrt(const)
+                data = ip.interp1d(self.xb3, bb3, axis=0, copy=False, assume_sorted=True)(self.xc3)*math.sqrt(const)
                 self.unit = "G"
             elif self.quantityCombo.currentText() == "Magnetic field Bh (horizontal)":
                 bb1 = self.modelfile[mod].dataset[dat].box[0]["bb1"].data
@@ -1210,8 +1212,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 A = np.diff(self.xb1) * np.diff(self.xb2)
                 bb3 = self.modelfile[mod].dataset[dat].box[0]["bb3"].data
 
-                data = ip.interp1d(self.xb3, bb3, axis=0, copy=False, assume_sorted=True)(self.xc3) * A *\
-                       math.sqrt(const)
+                data = ip.interp1d(self.xb3, bb3, axis=0, copy=False, assume_sorted=True)(self.xc3)*A*math.sqrt(const)
                 self.unit = "G*km^2"
             elif self.quantityCombo.currentText() == "Vert. magnetic gradient Bz/dz":
                 x3 = self.modelfile[0].dataset[0].box[0]["xb3"].data.squeeze()*1.e-5
@@ -1526,13 +1527,6 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.normMaxEdit.setText("{dat:16.5g}".format(dat=self.data.max()))
 
         self.sameNorm = False
-
-    def cmComboChange(self):
-        self.plotBox.colorChange(self.cmCombo.currentText())
-
-        self.colorbar.set_cmap(self.cmCombo.currentCmap)
-        self.colorbar.draw_all()
-        self.colorcanvas.draw()
 
     def mathComboChange(self):
         self.data = self.setPlotData(self.modelind, self.dsind)

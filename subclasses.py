@@ -932,7 +932,7 @@ class PlotWidget(FigureCanvas):
 
         self.msgBox = QtWidgets.QMessageBox()
 
-        self.fig = plt.Figure(figsize=(8,6), dpi=100)
+        self.fig = plt.Figure(figsize=(8, 6), dpi=100)
 
         FigureCanvas.__init__(self, self.fig)
 
@@ -945,9 +945,9 @@ class PlotWidget(FigureCanvas):
 
         self.toolbar = NavigationToolbar(self, self)
         
-        x1 = np.linspace(0,np.pi,100)
-        x2 = np.linspace(0,np.pi,100)
-        data=[[x1[i] * x2[j] for i in range(len(x1))]for j in range(len(x2))]
+        x1 = np.linspace(0, np.pi, 100)
+        x2 = np.linspace(0, np.pi, 100)
+        data = np.outer(x1, x2)
 
         self.image = self.ax.imshow(data, interpolation="bilinear", origin="bottom")
 
@@ -1091,7 +1091,7 @@ def saveHD5(filename, modelfile, datatype, data, time, pos, plane):
     datagroup["plane"] = plane
     
     if plane == "xy":
-        datagroup["data"] = data[pos[2],:,:]
+        datagroup["data"] = data[pos[2], :, :]
         
         datagroup["data"].dims[0].label = "x"
         datagroup["data"].dims[1].label = "y"
@@ -1115,7 +1115,7 @@ def saveHD5(filename, modelfile, datatype, data, time, pos, plane):
         datagroup['data'].dims[1].attach_scale(datagroup['z'])
         
     elif plane == "yz":
-        datagroup["data"] = data[:,:,pos[0]]
+        datagroup["data"] = data[:, :, pos[0]]
         
         datagroup["data"].dims[0].label = "y"
         datagroup["data"].dims[1].label = "z"
