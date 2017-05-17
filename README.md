@@ -1,4 +1,4 @@
-# CO5BOLDViewer 0.8.5
+# CO5BOLDViewer 0.8.6
 
 A QT-based viewer of .uio-data used by CO5BOLD. Written in Python 3.5.
 
@@ -206,7 +206,7 @@ Examples:
 ### ...use the par-module
 
 The par-module consists of the ParFile-class, which can be used like the File-class of the uio-routine. It only has
-Entry-objects, which means that there is no sub-class. The File-object behaves like a dictionary, but the values are
+Entry-objects, which means that there is no other sub-class. The File-object behaves like a dictionary, but the values are
 stored in the member "data" (like in the uio-module).
 
 Example:
@@ -217,8 +217,8 @@ Example:
     parf = ParFile(parname)
     
     print(list(parf.keys())) # prints the available entries of parf
-    print(parf['opafile'])   # prints the file-name of the used opacity-file
-    print(parf['opapath'])   # prints the path to the used opacity-file
+    print(parf['opafile'].data)   # prints the file-name of the used opacity-file
+    print(parf['opapath'].data)   # prints the path to the used opacity-file
 
 ## Change-Log
 
