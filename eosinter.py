@@ -133,7 +133,7 @@ class EosInter:
         except KeyError:
             raise ValueError("Wrong dimension. Only 3D- and 4D-arrays supported.")
 
-        if quantity in ["Entropy", "entropy", "E", "e"]:
+        if quantity in ["Entropy", "entropy", "E", "e", "S", "s"]:
             C = self.cent
         elif quantity in ["Pressure", "pressure", "P", "p"]:
             C = self.cpress
@@ -176,7 +176,7 @@ class EosInter:
         """
             Description
             -----------
-                Computes gas-pressure and its derivatives dPdrho and dPdei.
+                Computes gas-pressure and its derivations dPdrho and dPdei.
             Input
             -----
                 :param rho: ndarray, shape of simulation box, density-field
@@ -202,7 +202,7 @@ class EosInter:
         """
             Description
             -----------
-                Computes temperature and its derivative dTdei.
+                Computes temperature and its derivations dTdei.
             Input
             -----
                 :param rho: ndarray, shape of simulation box, density-field

@@ -123,6 +123,8 @@ class Opac:
                 When opta is imported, it checks, if the compiled functions for computing opacity and optical depth are
                 available. The availability is printed into the console ("eosx is available: True/False"). If they are
                 not available, the methods for computing kappa, tau, height and quant_at_tau cannot be used.
+                
+                All quantities must be float32.
 
             Input
             -----
@@ -149,21 +151,17 @@ class Opac:
         log10T = ne.evaluate("log10(T)")
 
         if T.ndim == 3:
-            return ne.evaluate("10**kap",
-                               local_dict={'kap': eosx.logPT2kappa3D(log10P, log10T, self.tabP, self.tabT,
-                                                                     self.tabKap, self.tabTBN, self.tabDTB,
-                                                                     self.idxTBN, self.tabPBN, self.tabDPB,
-                                                                     self.idxPBN, iBand)})
+            func = eosx.logPT2kappa3D
         elif T.ndim == 4:
-            return ne.evaluate("10**kap",
-                               local_dict={'kap': eosx.logPT2kappa4D(log10P, log10T, self.tabP, self.tabT,
-                                                                     self.tabKap, self.tabTBN, self.tabDTB,
-                                                                     self.idxTBN, self.tabPBN, self.tabDPB,
-                                                                     self.idxPBN, iBand)})
+            func = eosx.logPT2kappa4D
         else:
             raise ValueError("Wrong dimension. Only 3D- and 4D-arrays supported.")
 
-    def tau(self, rho, z, axis=-1, **kwargs):
+        return ne.evaluate("10**kap", local_dict={'kap': func(log10P, log10T, self.tabP, self.tabT, self.tabKap,
+                                                              self.tabTBN, self.tabDTB, self.idxTBN, self.tabPBN,
+                                                              self.tabDPB, self.idxPBN, iBand)})
+
+    def tau(self, rho, axis=-1, **kwargs):
         """
             Description
             -----------
@@ -175,15 +173,13 @@ class Opac:
                 When opta is imported, it checks, if the compiled functions for computing opacity and optical depth are
                 available. The availability is printed into the console ("eosx is available: True/False"). If they are
                 not available, the methods for computing kappa, tau, height and quant_at_tau cannot be used.
+                
+                All quantities must be float32.
 
             Input
             -----
                 :param rho: ndarray, mass-density
-                :param z: 1D ndarray, positions of desired values. Has to have the same length like the axis of rho and
-                          the other provided values that have to be integrated (rho and kappa, or T and P).
-                           Attention: Must be in cgs!
                 :param axis: int, optional, axis along the integration will take place. Default: -1
-                :param mode: int, optional, if mode=0: cubic integration, else linear integration (see CAT). Default: 0
                 :param kwargs:
                     :param kappa: ndarray, opacity. If provided, kappa times rho will be integrated directly.
                     :param T: ndarray, temperature. If kappa is not provided, but T and P, the opacity will be computed
@@ -192,12 +188,15 @@ class Opac:
                               first. Will be ignored, if kappa is provided.
                     :param iBand: int, optional, opacity-band. If kappa is not provided, but T and P, the opacity will
                                   be computed first. Will be ignored, if kappa is provided. Default: 0
+                    :param z: 1D ndarray, height-scale. Has to have the same length like the vertical axis of rho and
+                              the other provided values (kappa, or T and P).
+                              Attention: Must be in cgs!
                     :param zb: 1D ndarray, optional, boundary-centered z-positions. If not provided, cell-heights will
                                be computed with z. Attention: Must be in cgs!
 
             Output
             ------
-                :return: ndarray, optical depth (tau) of desired band.
+                :return: ndarray, optical depth (tau) of desired band (default band: "0" (bolometric).
 
             Example
             -------
@@ -222,6 +221,7 @@ class Opac:
         """
         if not eosx_available:
             raise IOError("Compilation of eosinterx.pyx necessary.")
+
         if 'kappa' in kwargs:
             kaprho = ne.evaluate("kappa*rho", local_dict={'rho': rho, 'kappa': kwargs['kappa']})
         elif 'T' in kwargs and 'P' in kwargs:
@@ -236,10 +236,12 @@ class Opac:
                              "provided")
 
         if 'zb' in kwargs:
-            dz = np.diff(kwargs['zb'])
-        else:
-            dz = np.diff(z)
+            dz = np.diff(kwargs['zb']).astype(np.float32)
+        elif 'z' in kwargs:
+            dz = np.diff(kwargs['z']).astype(np.float32)
             dz = np.append(dz, dz[-1])
+        else:
+            raise ValueError("Either 'zb' or 'z' has to be provided.")
 
         if 'radHtautop' in kwargs:
             radHtautop = np.float32(kwargs['radHtautop'])
@@ -272,6 +274,8 @@ class Opac:
                 When opta is imported, it checks, if the compiled functions for computing opacity and optical depth are
                 available. The availability is printed into the console ("eosx is available: True/False"). If they are
                 not available, the methods for computing kappa, tau, height and quant_at_tau cannot be used.
+                
+                All quantities must be float32.
 
             Input
             -----
@@ -342,24 +346,23 @@ class Opac:
                     return eosx.height4D(kwargs['tau'], z, value)
 
         if 'zb' in kwargs:
-            dz = np.diff(kwargs['zb'])
+            zb = kwargs['zb'].astype(np.float32)
         else:
-            dz = np.diff(z)
+            dz = np.diff(z).astype(np.float32)
             zb = z - dz/2
-            zb = np.append(zb, zb[-1])
-            zb[-1] += dz/2
+            zb = np.append(zb, zb[-1] + dz[-1])
 
         if 'rho' in kwargs:
             if 'kappa' in kwargs:
                 if 'iBand' in kwargs:
-                    tau = self.tau(kwargs['rho'], z, axis=axis, kappa=kwargs['kappa'], zb=zb, iBand=kwargs['iBand'])
+                    tau = self.tau(kwargs['rho'], axis=axis, kappa=kwargs['kappa'], zb=zb, iBand=kwargs['iBand'])
                 else:
-                    tau = self.tau(kwargs['rho'], z, axis=axis, kappa=kwargs['kappa'], zb=zb)
+                    tau = self.tau(kwargs['rho'], axis=axis, kappa=kwargs['kappa'], zb=zb)
             elif 'T' in kwargs and 'P' in kwargs:
                 if 'iBand' in kwargs:
-                    tau = self.tau(kwargs['rho'], z, axis=axis, P=kwargs['P'], T=kwargs['T'], iBand=kwargs['iBand'])
+                    tau = self.tau(kwargs['rho'], axis=axis, P=kwargs['P'], T=kwargs['T'], zb=zb, iBand=kwargs['iBand'])
                 else:
-                    tau = self.tau(kwargs['rho'], z, axis=axis, P=kwargs['P'], T=kwargs['T'])
+                    tau = self.tau(kwargs['rho'], axis=axis, P=kwargs['P'], T=kwargs['T'], zb=zb)
             else:
                 raise ValueError("Either the keyword-argument 'kappa', or 'T' (temperature) and 'P' (pressure) have to"
                                  " be provided.")
@@ -373,18 +376,18 @@ class Opac:
 
         if dim == 3:
             if type(value) == np.ndarray:
-                return eosx.height3Dvec(kwargs['tau'], z, value)
+                return eosx.height3Dvec(tau, z, value)
             else:
-                return eosx.height3D(kwargs['tau'], z, value)
+                return eosx.height3D(tau, z, value)
         elif dim == 4:
             if type(value) == np.ndarray:
-                return eosx.height4Dvec(kwargs['tau'], z, value)
+                return eosx.height4Dvec(tau, z, value)
             else:
-                return eosx.height4D(kwargs['tau'], z, value)
+                return eosx.height4D(tau, z, value)
         raise ValueError("rho has to be 3D, or 4D.")
 
 
-    def quant_at_tau(self, quant, new_tau, axis=-1, **kwargs):
+    def quant_at_tau(self, quant, new_tau=1, axis=-1, **kwargs):
         """
             Description
             -----------
@@ -399,6 +402,8 @@ class Opac:
                 When opta is imported, it checks, if the compiled functions for computing opacity and optical depth are
                 available. The availability is printed into the console ("eosx is available: True/False"). If they are
                 not available, the methods for computing kappa, tau, height and quant_at_tau cannot be used.
+                
+                All quantities must be float32.
 
             Input
             -----
@@ -418,8 +423,10 @@ class Opac:
                     :param iBand: int, optional, opacity-band. If T, rho, and P, or kappa and rho are provdided, kappa
                                   and optical depth will be computed first. Will be ignored, if tau is provided.
                                   Default: 0
+                    :param z: 1D ndarray, optional, cell-centered z-positions. Is mandatory, if tau has to be computed
+                                (only rho, P and T, or rho and kappa provided). Has to be in cgs.
                     :param zb: 1D ndarray, optional, boundary-centered z-positions. If not provided, cell-heights will
-                               be computed with z.
+                               be computed with z. Has to be in cgs.
 
             Output
             ------
@@ -457,35 +464,36 @@ class Opac:
             raise ImportError("Compiled functions of eosx not found!")
 
         if 'tau' in kwargs:
-            tau = np.transpose(kwargs['tau'], axes=trans).astype(np.float32)
+            tau = kwargs['tau'].astype(np.float32)
         else:
             if 'rho' in kwargs:
-                if 'z' in kwargs:
-                    z = kwargs['z'].astype(np.float32)
+
+                if 'zb' in kwargs:
+                    zb = kwargs['zb'].astype(np.float32)
+                elif 'z' in kwargs:
+                    dz = np.diff(z)
+                    zb = z - dz / 2
+                    zb = np.append(zb, zb[-1] + dz[-1])
                 else:
-                    raise ValueError("If tau is not provided, providing z (interpolation-axis) is mandatory.")
+                    raise ValueError("Either 'zb' or 'z' has to be provided, if 'tau' is not available.")
+
                 if 'kappa' in kwargs:
-                    if 'zb' not in kwargs and 'tau' not in kwargs:
-                        dz = np.diff(z)
-                        zb = z - dz / 2
-                        zb = np.append(zb, zb[-1])
-                        zb[-1] += dz
                     kappa = kwargs['kappa'].astype(np.float32)
-                    tau = self.tau(kwargs['rho'], z, axis=axis, kappa=kappa, zb=zb)
+                    tau = self.tau(kwargs['rho'], axis=axis, kappa=kappa, zb=zb)
                 elif 'T' in kwargs and 'P' in kwargs:
                     T = kwargs['T'].astype(np.float32)
                     P = kwargs['P'].astype(np.float32)
                     if 'iBand' in kwargs:
-                        tau = self.tau(kwargs['rho'], z, axis=axis, P=P, T=T, iBand=kwargs['iBand'])
+                        tau = self.tau(kwargs['rho'], axis=axis, P=P, T=T, zb=zb, iBand=kwargs['iBand'])
                     else:
-                        tau = self.tau(kwargs['rho'], z, axis=axis, P=P, T=T)
+                        tau = self.tau(kwargs['rho'], axis=axis, P=P, T=T, zb=zb)
                 else:
                     raise ValueError("Either the keyword-argument 'kappa', or 'T' (temperature) and 'P' (pressure) have"
                                      " to be provided.")
             else:
                 raise ValueError("Either the keyword-argument 'tau' or 'rho' has to be provided.")
 
-        tau = np.transpose(tau, axes=trans).astype(np.float32)
+        tau = np.transpose(tau, axes=trans)
         quantity = np.transpose(quant, axes=trans).astype(np.float32)
         ntau = np.float32(new_tau)
 

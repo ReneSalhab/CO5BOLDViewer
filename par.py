@@ -1,21 +1,86 @@
+from collections import Mapping
+from struct import Struct
 from os import path
 import numpy as np
 import os
 import re
 
+_uint_from_bytes = Struct('>I')
 
-class ParFile:
+
+class _EntryMapping(Mapping):
+    def __init__(self, entries):
+        self._entries = entries
+
+    def __getitem__(self, key):
+        for e in self._entries:
+            if e.name == key:
+                return e
+        raise KeyError('%s' % key)
+
+    def __iter__(self):
+        for e in self._entries:
+            yield e.name
+
+    def __len__(self):
+        return len(self._entries)
+
+    @property
+    def values(self):
+        return self._entries
+
+    @property
+    def items(self):
+        return [(e.name, e) for e in self._entries]
+
+    def iteritems(self):
+        for e in self._entries:
+            yield (e.name, e)
+
+    def itervalues(self):
+        for e in self._entries:
+            yield e
+
+
+class Entry(object):
+    def __init__(self, type, name, params, dtype, shape, data):
+        self.type = type
+        self.name = name
+        self.params = params
+        self.dtype = dtype
+        self.shape = shape
+        self.data = data
+        if 'u' in params:
+            self.unit = params['u']
+        else:
+            self.unit = ''
+
+    # @property
+    # def params(self):
+    #     slist = [self.type, self.name]
+    #     for k in ['b', 'd', 'u']:
+    #         if k in self.params:
+    #             v = self.params[k]
+    #             if ' ' in v:
+    #                 v = "'%s'" % v
+    #             slist.append('%s=%s' % (k, v))
+    #     return '<%s>' % (' '.join(slist))
+
+
+class ParFile(_EntryMapping):
     def __init__(self, filename):
         self.types = ["label", "fileform", "character", "real", "complex", "integer", "table"]
         self.linbr = ".+\&"
 
-        if not filename.endswith(".par"):
-            fname = path.join(filename, "rhd.par")
-        self.f = open(filename, 'r')
-        self.read()
-        self.f.close()
+        with open(filename, 'r') as self.f:
+            self.read()
 
-    def conv_type(self, etype):
+    def __repr__(self):
+        slist = ["ParFile"]
+        slist.append("entries={0}".format(len(self._entries)))
+        return "<{0}>".format(' '.join(slist))
+
+    def _conv_type(self, etype):
         if etype in ["character", "label"]:
             return np.str_
         elif etype == "real":
@@ -28,8 +93,10 @@ class ParFile:
             return etype
         elif "table" == etype:
             return list
+        else:
+            raise TypeError("Unknown type found!")
 
-    def split_params(self, param):
+    def _split_params(self, param):
         param = re.findall("[\S]+='[^\']+'|[\S]+", param.strip())
         params = {}
         for p in param:
@@ -55,48 +122,55 @@ class ParFile:
             params['d'] = tuple(reversed(fshape))
         return params
 
-    def get_entry(self, entry):
-        while True:
-            if re.match(self.linbr, self.line) is not None:
-                self.line = re.match(self.linbr, self.line).group()[:-1] + self.f.readline()
-            if re.match(self.linbr, self.line) is None:
-                break
+    def _get_entry(self):
+        while re.match(self.linbr, self.line) is not None:
+            # better method for combining description lines. Errors like several "&" are considered
+            self.line = "".join(re.match(self.linbr, self.line).group().split("&")) + self.f.readline()
+
         etype, name, param = re.findall("(\w+) (\w+) ?(.*)$", self.line)[0]
-        entry[name] = {}
-        entry[name]['type'] = self.conv_type(etype)
-        entry[name]['params'] = self.split_params(param)
-        if 'b' in entry[name]['params']:
-            if 'd' in entry[name]['params']:
+        dtype = self._conv_type(etype)
+        params = self._split_params(param)
+
+        if 'b' in params:
+            if 'd' in params:
+                shape = params['d']
                 self.line = self.f.readline()
-                if len(entry[name]['params']['d']) == 1:
-                    entry[name]['data'] = entry[name]['type'](self.line.strip())
+                if len(shape) == 1:
+                    data = dtype(self.line.strip())
                 else:
                     val = []
                     while True:
                         for i in self.line.split():
                             val.append(i)
+                        self.line = self.f.readline()
                         if any(self.line.startswith(ty) for ty in self.types):
                             break
-                        self.line = self.f.readline()
-                        entry[name]['data'] = np.array(val, dtype=entry[name]['type']).reshape(entry[name]['params']
-                                                                                               ['d'])
+
+                    data = np.array(val, dtype=dtype).reshape(shape)
             else:
+                shape = None
                 self.line = self.f.readline()
-                entry[name]['data'] = entry[name]['type'](self.line.strip())
-        self.line = self.f.readline()
-        self.line = self.line.strip()
-        return entry
+                data = dtype(self.line.strip())
+            self.line = self.f.readline()
+            self.line = self.line.strip()
+        else:
+            self.line = self.f.readline()
+            self.line = self.line.strip()
+            return
+
+        return Entry(type=etype, name=name, params=params, dtype=dtype, shape=shape, data=data)
 
     def read(self):
         count = 0
-        self.struc = {}
+        entries = []
         for self.line in self.f:
             self.line = self.line.strip()
             if "fileform" in self.line:
-                self.struc['Header'] = {}
+                # self.header = {}
                 while "label" not in self.line:
+                    self.header = []
                     if any(self.line.startswith(ty) for ty in self.types):
-                        self.struc['Header'] = self.get_entry(self.struc['Header'])
+                        self.header.append(self._get_entry())
                     else:
                         self.line = self.f.readline()
                         self.line = self.line.strip()
@@ -115,12 +189,13 @@ class ParFile:
                     else:
                         count = 0
                     if any(self.line.startswith(ty) for ty in self.types):
-                        self.struc = self.get_entry(self.struc)
+                        entries.append(self._get_entry())
                     else:
                         self.line = self.f.readline()
                         self.line = self.line.strip()
                     if "label" in self.line or count == 4:
                         break
+        super(ParFile, self).__init__(entries)
 
 if __name__ == "__main__":
     parname = r"N:\Python\Data\d3gt57g44v50rsn01_400x400x188.par"

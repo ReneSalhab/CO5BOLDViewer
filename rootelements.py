@@ -18,7 +18,6 @@ from scipy import interpolate as ip
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 import matplotlib.pyplot as plt
-import matplotlib.cm as cm
 import matplotlib.colors as cl
 import matplotlib.colorbar as clbar
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
@@ -26,13 +25,15 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 import uio
 from opta import Opac
 import subclasses as sc
+import windows as wind
+from par import ParFile
 from eosinter import EosInter
 
 
 # noinspection PyUnresolvedReferences
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
-        self.version = "0.8.5"
+        self.version = "0.8.6"
         super(MainWindow, self).__init__()
 
         self.initUI()
@@ -70,6 +71,7 @@ class MainWindow(QtWidgets.QMainWindow):
                         self.stdDirEos = line.split()[-1]
         else:
             self.stdDirMod = None
+            self.stdDirPar = None
             self.stdDirOpa = None
             self.stdDirEos = None
 
@@ -110,7 +112,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # --- Available Colormaps (handle invert versions with checkbox) ---
 
-        self.cmaps = [ c for c in plt.colormaps() if not c.endswith('_r') ]
+        self.cmaps = [c for c in plt.colormaps() if not c.endswith('_r') ]
         self.cmaps.sort()
 
         # --- Message Box ---
@@ -119,19 +121,39 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # --- eos- and opta-file-control variables ---
 
+        self.par = False
         self.eos = False
         self.opa = False
 
-        self.tauheight = None   # is height of tau=1-surface
+        self.eosname = False
+        self.opaname = False
 
         # --- plot-control ---
 
         self.plot = False
+        self.tauheight = None  # 2-tuple. First element is domain of 1D-plot, second element is height of tau=1-surface
 
     def setMenu(self):
         # --------------------------------------------------------------------
         # ------------------ "File" drop-down menu elements ------------------
         # --------------------------------------------------------------------
+
+        # --- "Load Model" button config
+
+        openModelAction = QtWidgets.QAction(QtGui.QIcon("open.png"), "Load &Model File", self)
+        openModelAction.setShortcut("Ctrl+M")
+        openModelAction.setStatusTip("Open a Model File (.mean, .full, .sta and .end).")
+        openModelAction.setToolTip("Open a model-file. (.mean, .full and .end)")
+        openModelAction.triggered.connect(self.showLoadModelDialog)
+
+        # --- "Load parameter-File" button config
+
+        self.openParAction = QtWidgets.QAction(QtGui.QIcon("open.png"), "Load &parameter File", self)
+        self.openParAction.setShortcut("Ctrl+P")
+        self.openParAction.setStatusTip("Open a parameter (.par)")
+        self.openParAction.setToolTip("Open an eos-file.")
+        self.openParAction.triggered.connect(self.showLoadParDialog)
+        self.openParAction.setDisabled(True)
 
         # --- "Load EOS-File" button config
 
@@ -151,14 +173,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.openOpaAction.triggered.connect(self.showLoadOpaDialog)
         self.openOpaAction.setDisabled(True)
 
-        # --- "Load Model" button config
-
-        openModelAction = QtWidgets.QAction(QtGui.QIcon("open.png"), "Load &Model File", self)
-        openModelAction.setShortcut("Ctrl+M")
-        openModelAction.setStatusTip("Open a Model File (.mean, .full, .sta and .end).")
-        openModelAction.setToolTip("Open a model-file. (.mean, .full and .end)")
-        openModelAction.triggered.connect(self.showLoadModelDialog)
-
         # --- "Exit" button config
 
         exitAction = QtWidgets.QAction(QtGui.QIcon("exit.png"), "&Exit", self)
@@ -166,6 +180,15 @@ class MainWindow(QtWidgets.QMainWindow):
         exitAction.setStatusTip("Exit application.")
         exitAction.setToolTip("Exit application.")
         exitAction.triggered.connect(self.close)
+
+        # --------------------------------------------------------------------
+        # ----------------- "Window" drop-down menu elements -----------------
+        # --------------------------------------------------------------------
+
+        stratificationAction = QtWidgets.QAction("Stratification", self)
+        stratificationAction.setStatusTip("Plot quantities over optical or barometric height.")
+        stratificationAction.setToolTip("Plot quantities over optical or barometric height.")
+        stratificationAction.triggered.connect(self.showStratiWindow)
 
         # --------------------------------------------------------------------
         # ----------------- "Output" drop-down menu elements -----------------
@@ -183,7 +206,9 @@ class MainWindow(QtWidgets.QMainWindow):
         saveSliceHD5Action.setToolTip("Save current slice as HDF5 or FITS file.")
         saveSliceHD5Action.triggered.connect(self.showSaveSliceDialog)
 
-        # --- Initialize menubar ---
+        # --------------------------------------------------------------------
+        # ------------------------ Initialize menubar ------------------------
+        # --------------------------------------------------------------------
 
         menubar = QtWidgets.QMenuBar(self)
         menubar.setNativeMenuBar(False)
@@ -191,10 +216,19 @@ class MainWindow(QtWidgets.QMainWindow):
         # --- "File" drop-down menu elements ---
 
         fileMenu = QtWidgets.QMenu("&File", self)
+        fileMenu.addAction(openModelAction)
+        fileMenu.addSeparator()
+        fileMenu.addAction(self.openParAction)
         fileMenu.addAction(self.openEosAction)
         fileMenu.addAction(self.openOpaAction)
-        fileMenu.addAction(openModelAction)
+        fileMenu.addSeparator()
         fileMenu.addAction(exitAction)
+
+        # --- "Window" drop-down menu elements ---
+
+        self.windowMenu = QtWidgets.QMenu("&WIndow", self)
+        self.windowMenu.addAction(stratificationAction)
+        self.windowMenu.setDisabled(True)
 
         # --- "Output" drop-down menu elements ---
 
@@ -204,15 +238,19 @@ class MainWindow(QtWidgets.QMainWindow):
         self.outputMenu.setDisabled(True)
 
         menubar.addMenu(fileMenu)
+        menubar.addMenu(self.windowMenu)
         menubar.addMenu(self.outputMenu)
 
         self.setMenuBar(menubar)
 
+    def showStratiWindow(self):
+        print("drin")
+
     def showImageSaveDialog(self):
-        sc.showImageSaveDialog(self.modelfile, self.data, self.timeSlider.value(), self.quantityCombo.currentText(),
-                               self.time[:, 0], self.x1Slider.value(), self.xc1, self.x2Slider.value(), self.xc2,
-                               self.x3Slider.value(), self.xc3, self.cmCombo.currentIndex(),
-                               self.quantityCombo.currentIndex())
+        wind.showImageSaveDialog(self.modelfile, self.data, self.timeSlider.value(), self.quantityCombo.currentText(),
+                                 self.time[:, 0], self.x1Slider.value(), self.xc1, self.x2Slider.value(), self.xc2,
+                                 self.x3Slider.value(), self.xc3, self.cmCombo.currentIndex(),
+                                 self.quantityCombo.currentIndex())
 
     def showLoadModelDialog(self):
         if self.stdDirMod is None:
@@ -220,110 +258,149 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.fname, fil = QtWidgets.QFileDialog.getOpenFileNames(self, "Open Model File", self.stdDirMod,
                                                                  "Model files (*.full *.end *.sta);;Mean files(*.mean)")
-        if len(self.fname) == 0:
-            return
-        self.stdDirMod = os.sep.join(self.fname[0].split(os.sep)[:-1])
         Nfiles = len(self.fname)
+        if Nfiles == 0:
+            return
 
-        if Nfiles > 0:
-            self.statusBar().showMessage("Read Modelfile...")
-            QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
+        self.stdDirMod = os.sep.join(self.fname[0].split(os.sep)[:-1])
 
-            self.modelfile = []
+        self.statusBar().showMessage("Read Modelfile...")
+        QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
 
-            pd = QtWidgets.QProgressDialog("Load Model-files...", "Cancel", 0, Nfiles, self)
+        self.modelfile = []
 
-            for i in range(Nfiles):
-                self.modelfile.append(uio.File(self.fname[i]))
-                pd.setValue(i)
+        pd = QtWidgets.QProgressDialog("Load Model-files...", "Cancel", 0, Nfiles, self)
 
-                if pd.wasCanceled():
-                    break
+        for i in range(Nfiles):
+            self.modelfile.append(uio.File(self.fname[i]))
+            pd.setValue(i)
 
-            pd.setValue(len(self.fname))
+            if pd.wasCanceled():
+                return
 
-            if fil == "Mean files(*.mean)":
-                self.meanfile = True
-                # --- content from .mean file ---
-                # --- Components depict box number from filestructure (see manual of CO5BOLD)
+        pd.setValue(len(self.fname))
 
-                self.quantityList = [OrderedDict([("Bolometric intensity", "intb3_r"),
-                                                  ("Intensity (bin 1)", "int01b3_r"),
-                                                  ("Intensity (bin 2)", "int02b3_r"),
-                                                  ("Intensity (bin 3)", "int03b3_r"),
-                                                  ("Intensity (bin 4)", "int04b3_r"),
-                                                  ("Intensity (bin 5)", "int05b3_r")]),
-                                     OrderedDict([("Avg. density (x1)", "rho_xmean"),
-                                                  ("Squared avg. density (x1)", "rho_xmean2")])]
-            elif fil == "Model files (*.full *.end *.sta)":
-                self.meanfile = False
-                # --- content from .full or .end file (has one box per dataset) ---
-                # --- First list component: Data from file
-                # --- Second list component: Data from post computed arrays
-                # --- Third list component: Post computed MHD data, if present
+        if fil == "Mean files(*.mean)":
+            self.meanfile = True
+            # --- content from .mean file ---
+            # --- Components depict box number from filestructure (see manual of CO5BOLD)
 
-                self.quantityList = [OrderedDict([("Density", "rho"), ("Internal energy", "ei"),
-                                                  ("Velocity x-component", "v1"), ("Velocity y-component", "v2"),
-                                                  ("Velocity z-component", "v3"), ("Velocity, absolute", "vabs"),
-                                                  ("Velocity, horizontal", "vhor"), ("Kinetic energy", "kinEn"),
-                                                  ("Momentum", "momentum"), ("Vert. mass flux (Rho*V3)", "massfl")])]
+            self.quantityList = [OrderedDict([("Bolometric intensity", "intb3_r"),
+                                              ("Intensity (bin 1)", "int01b3_r"),
+                                              ("Intensity (bin 2)", "int02b3_r"),
+                                              ("Intensity (bin 3)", "int03b3_r"),
+                                              ("Intensity (bin 4)", "int04b3_r"),
+                                              ("Intensity (bin 5)", "int05b3_r")]),
+                                 OrderedDict([("Avg. density (x1)", "rho_xmean"),
+                                              ("Squared avg. density (x1)", "rho_xmean2")])]
+        elif fil == "Model files (*.full *.end *.sta)":
+            self.meanfile = False
+            # --- content from .full or .end file (has one box per dataset) ---
+            # --- First list component: Data from file
+            # --- Second list component: Data from post computed arrays
+            # --- Third list component: Post computed MHD data, if present
 
-                self.openOpaAction.setDisabled(False)
-                self.openEosAction.setDisabled(False)
-                mhd = False
-                for mod in self.modelfile:
-                    if "bb1" in mod.dataset[0].box[0]:
-                        mhd = True
-                        break
+            self.quantityList = [OrderedDict([("Density", "rho"), ("Internal energy", "ei"),
+                                              ("Velocity x-component", "v1"), ("Velocity y-component", "v2"),
+                                              ("Velocity z-component", "v3"), ("Velocity, absolute", "vabs"),
+                                              ("Velocity, horizontal", "vhor"), ("Kinetic energy", "kinEn"),
+                                              ("Momentum", "momentum"), ("Vert. mass flux (Rho*V3)", "massfl")])]
 
-                if mhd:
-                    self.quantityList.append(OrderedDict([("Magnetic field Bx", "bc1"), ("Magnetic field By", "bc2"),
-                                                          ("Magnetic field Bz", "bc3"), ("Divergence of B", "divB"),
-                                                          ("Magnetic field Bh (horizontal)", "bh"),
-                                                          ("Magnetic f.abs.|B|, unsigned", "absb"),
-                                                          ("Magnetic field B^2, signed", "bsq"),
-                                                          ("Vert. magnetic flux Bz*Az", "bfl"),
-                                                          ("Vert. magnetic gradient Bz/dz", "bgrad"),
-                                                          ("Magnetic energy", "bener"), ("Magnetic potential Phi", "phi"),
-                                                          ("Alfven speed", "ca"), ("Electric current density jx", "jx"),
-                                                          ("Electric current density jy", "jy"),
-                                                          ("Electric current density jz", "jz"),
-                                                          ("Electric current density |j|", "jabs")]))
+            # enable loading of parameter-, opacity- and eos-files
+            self.openOpaAction.setDisabled(False)
+            self.openEosAction.setDisabled(False)
+            self.openParAction.setDisabled(False)
 
-            else:
-                self.msgBox.setText("Data format unknown.")
-                self.msgBox.exec_()
+            path = os.path.split(self.fname[0])[0]
 
-                for mod in self.modelfile:
-                    mod.close()
-
-            # --- Fourth list component: EOS (and opacity) table
-            # interpolated data, if already loaded
+            # If another file is loaded, set the indicator to an "uncertain" state, i.e. it is not clear, if the
+            # specific file corresponds to the recently loaded model
 
             if self.eos:
-                self.quantityList.append(OrderedDict([("Temperature", "temp"), ("Entropy", "entr"), ("Pressure", "press"),
-                                                      ("Adiabatic coefficient G1", "gamma1"), ("Mach Number", "mach"),
-                                                      ("Adiabatic coefficient G3", "gamma3"), ("Sound velocity", "c_s"),
-                                                      ("Mean molecular weight", "mu"), ("Plasma beta", "beta"),
-                                                      ("c_s / c_A", "csca")]))
+                self.eosFileLabel.setStyleSheet('color: yellow')
+                self.eosFileLabel.setToolTip("You loaded a new model, while using an eos-file loaded beforehand."
+                                             " Are you sure that the eos-file is still valid?"
+                                             " If yes, then click on label. Otherwise load a new eos-file.")
 
             if self.opa:
-                self.quantityList[-1]["Opacity"] = "opa"
-                self.quantityList[-1]["Optical depth"] = "optdep"
+                self.opaFileLabel.setStyleSheet('color: yellow')
+                self.opaFileLabel.setToolTip("You loaded a new model, while using an opa-file loaded beforehand."
+                                             "Are you sure that the opa-file is still valid?"
+                                             "If yes, then click on label. Otherwise load a new opa-file.")
 
-            if not self.modelfile[0].closed:
-                self.quantityCombo.clear()
-                self.outputMenu.setDisabled(False)
+            if "rhd.par" in os.listdir(path):
+                self.par = True
+                self.parFile = ParFile(os.path.join(path, "rhd.par"))
 
-                for type in self.quantityList:
-                    self.quantityCombo.addItems(sorted(type.keys()))
+                opaname = os.path.join(self.parFile['opapath'].data, self.parFile['opafile'].data)
+                eosname = os.path.join(self.parFile['eospath'].data, self.parFile['eosfile'].data)
 
-                self.quantityCombo.setDisabled(False)
+                self.showLoadEosDialog(eosname=eosname)
+                self.showLoadOpaDialog(opaname=opaname)
+                self.parFileLabel.setStyleSheet('color: green')
+                self.parFileLabel.setToolTip("Parameter-file is available.")
+            else:
+                if self.par:
+                    self.stdDirPar = self.stdDirMod
+                    self.parFileLabel.setStyleSheet('color: yellow')
+                    self.parFileLabel.setToolTip("You loaded a new model, while using a par-file loaded beforehand."
+                                                 "Are you sure that the par-file is still valid?"
+                                                 "If yes, then click on label. Otherwise load a new par-file.")
+            mhd = False
+            for mod in self.modelfile:
+                if "bb1" in mod.dataset[0].box[0]:
+                    mhd = True
+                    break
 
-                self.initialLoad()
+            if mhd:
+                self.quantityList.append(OrderedDict([("Magnetic field Bx", "bc1"), ("Magnetic field By", "bc2"),
+                                                      ("Magnetic field Bz", "bc3"), ("Divergence of B", "divB"),
+                                                      ("Magnetic field Bh (horizontal)", "bh"),
+                                                      ("Magnetic f.abs.|B|, unsigned", "absb"),
+                                                      ("Magnetic field B^2, signed", "bsq"),
+                                                      ("Vert. magnetic flux Bz*Az", "bfl"),
+                                                      ("Vert. magnetic gradient Bz/dz", "bgrad"),
+                                                      ("Magnetic energy", "bener"), ("Magnetic potential Phi", "phi"),
+                                                      ("Alfven speed", "ca"), ("Electric current density jx", "jx"),
+                                                      ("Electric current density jy", "jy"),
+                                                      ("Electric current density jz", "jz"),
+                                                      ("Electric current density |j|", "jabs")]))
 
-            QtWidgets.QApplication.restoreOverrideCursor()
-            self.statusBar().showMessage("Loaded {f} files".format(f=str(Nfiles)))
+        else:
+            self.msgBox.setText("Data format unknown.")
+            self.msgBox.exec_()
+
+            for mod in self.modelfile:
+                mod.close()
+
+        # --- Fourth list component: EOS (and opacity) table
+        # interpolated data, if already loaded
+
+        if self.eos:
+            self.quantityList.append(OrderedDict([("Temperature", "temp"), ("Entropy", "entr"), ("Pressure", "press"),
+                                                  ("Adiabatic coefficient G1", "gamma1"), ("Mach Number", "mach"),
+                                                  ("Adiabatic coefficient G3", "gamma3"), ("Sound velocity", "c_s"),
+                                                  ("Mean molecular weight", "mu"), ("Plasma beta", "beta"),
+                                                  ("c_s / c_A", "csca")]))
+
+        if self.opa:
+            self.quantityList[-1]["Opacity"] = "opa"
+            self.quantityList[-1]["Optical depth"] = "optdep"
+
+        if not self.modelfile[0].closed:
+            self.quantityCombo.clear()
+            # self.outputMenu.setDisabled(False)
+            # self.windowMenu.setDisabled(False)
+
+            for type in self.quantityList:
+                self.quantityCombo.addItems(sorted(type.keys()))
+
+            self.quantityCombo.setDisabled(False)
+
+            self.initialLoad()
+
+        QtWidgets.QApplication.restoreOverrideCursor()
+        self.statusBar().showMessage("Loaded {f} files".format(f=str(Nfiles)))
 
     def showSaveSliceDialog(self):
         if not self.stdDir:
@@ -351,14 +428,56 @@ class MainWindow(QtWidgets.QMainWindow):
 
             self.statusBar().showMessage("File {f} saved".format(f=fname))
 
-    def showLoadEosDialog(self):
+    def showLoadParDialog(self):
+
+        if self.stdDirPar is None:
+            self.stdDirPar = os.path.curdir
+
+        parname = QtWidgets.QFileDialog.getOpenFileName(self, "Open Parameter File", self.stdDirPar,
+                                                             "parameter files (*.par)")[0]
+
+        if len(parname) == 0:
+            return      # return if QFileDialog canceled
+
+        self.stdDirPar = os.sep.join(parname.split(os.sep)[:-1])
+
+        self.statusBar().showMessage("Read parameter file...")
+        QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
+
+        self.par = True
+        self.parFile = ParFile(parname)
+
+        if self.parFile['opapath'].data[-1] == os.path:
+            opaname = os.path.join(self.parFile['opapath'].data[:-1], self.parFile['opafile'].data)
+        else:
+            opaname = os.path.join(self.parFile['opapath'].data, self.parFile['opafile'].data)
+
+        if self.parFile['eospath'].data[-1] == os.path:
+            eosname = os.path.join(self.parFile['eospath'].data[:-1], self.parFile['eosfile'].data)
+        else:
+            eosname = os.path.join(self.parFile['eospath'].data, self.parFile['eosfile'].data)
+
+        self.showLoadEosDialog(eosname=eosname)
+        self.showLoadOpaDialog(opaname=opaname)
+        self.parFileLabel.setStyleSheet('color: green')
+        self.parFileLabel.setToolTip("Parameter-file is available.")
+
+    def showLoadEosDialog(self, eosname=False):
         if self.stdDirEos is None:
             self.stdDirEos = os.path.curdir
 
-        self.eosname = QtWidgets.QFileDialog.getOpenFileName(self, "Open EOS File", self.stdDirEos,
-                                                             "EOS files (*.eos)")[0]
+        if not eosname:
+            self.eosname = QtWidgets.QFileDialog.getOpenFileName(self, "Open EOS File", self.stdDirEos,
+                                                                 "EOS files (*.eos)")[0]
+        else:
+            if os.path.isfile(eosname):
+                self.eosname = eosname
+            else:
+                return
+
         if len(self.eosname) == 0:
-            return
+            return      # return if QFileDialog canceled
+
         self.stdDirEos = os.sep.join(self.eosname.split(os.sep)[:-1])
 
         if self.eosname:
@@ -386,17 +505,29 @@ class MainWindow(QtWidgets.QMainWindow):
             self.eos = True
 
             QtWidgets.QApplication.restoreOverrideCursor()
+
+            self.eosFileLabel.setStyleSheet('color: green')
+            self.eosFileLabel.setToolTip("EOS-file is available.")
+
             self.statusBar().showMessage("Done")
 
-    def showLoadOpaDialog(self):
+    def showLoadOpaDialog(self, opaname=False):
 
         if self.stdDirOpa is None:
             self.stdDirOpa = os.path.curdir
 
-        self.opaname = QtWidgets.QFileDialog.getOpenFileName(self, "Open opacity File", self.stdDirOpa,
-                                                             "opacity files (*.opta)")[0]
+        if not opaname:
+            self.opaname = QtWidgets.QFileDialog.getOpenFileName(self, "Open Opacity File", self.stdDirOpa,
+                                                                 "opacity files (*.opta)")[0]
+        else:
+            if os.path.isfile(opaname):
+                self.opaname = opaname
+            else:
+                return
+
         if len(self.opaname) == 0:
-            return
+            return      # return if QFileDialog canceled
+
         self.stdDirOpa = os.sep.join(self.opaname.split(os.sep)[:-1])
 
         if self.opaname:
@@ -415,6 +546,10 @@ class MainWindow(QtWidgets.QMainWindow):
             self.opa = True
 
             QtWidgets.QApplication.restoreOverrideCursor()
+
+            self.opaFileLabel.setStyleSheet('color: green')
+            self.opaFileLabel.setToolTip("Opacity-file is available.")
+
             self.statusBar().showMessage("Done")
 
     def setGridLayout(self):
@@ -428,7 +563,7 @@ class MainWindow(QtWidgets.QMainWindow):
         splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
         maingrid.addWidget(splitter)
 
-        # --- Layout with control elements ---self.timind
+        # --- Layout with control elements ---
 
         leftgrid = QtWidgets.QVBoxLayout()
 
@@ -554,7 +689,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         x1SliderTitle = QtWidgets.QLabel("x-position:")
         currentX1Title = QtWidgets.QLabel("ix:")
-        actualX1Title = QtWidgets.QLabel("x/[km]:")
+        actualX1Title = QtWidgets.QLabel("x [km]:")
 
         self.currentX1Edit = QtWidgets.QLineEdit(str(self.x1Slider.value()))
         self.currentX1Edit.setMaximumWidth(40)
@@ -569,7 +704,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         x2SliderTitle = QtWidgets.QLabel("y-position:")
         currentX2Title = QtWidgets.QLabel("iy:")
-        actualX2Title = QtWidgets.QLabel("y/[km]:")
+        actualX2Title = QtWidgets.QLabel("y [km]:")
 
         self.currentX2Edit = QtWidgets.QLineEdit(str(self.x2Slider.value()))
         self.currentX2Edit.setMaximumWidth(40)
@@ -584,7 +719,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         x3SliderTitle = QtWidgets.QLabel("z-position:")
         currentX3Title = QtWidgets.QLabel("iz:")
-        actualX3Title = QtWidgets.QLabel("z/[km]:")
+        actualX3Title = QtWidgets.QLabel("z [km]:")
 
         self.currentX3Edit = QtWidgets.QLineEdit(str(self.x3Slider.value()))
         self.currentX3Edit.setMaximumWidth(40)
@@ -847,6 +982,36 @@ class MainWindow(QtWidgets.QMainWindow):
         vectorPlotLayout.addWidget(self.vpAlphaEdit, 3, 4)
 
         # ---------------------------------------------------------------------
+        # -------------- Groupbox with file-state indicators ------------------
+        # ---------------------------------------------------------------------
+
+        fileStateGroup = QtWidgets.QGroupBox("File available", self.centralWidget)
+        fileStateLayout = QtWidgets.QHBoxLayout(fileStateGroup)
+        fileStateGroup.setLayout(fileStateLayout)
+
+        self.parFileLabel = QtWidgets.QLabel("parameter-file")
+        self.parFileLabel.setStyleSheet('color: red')
+        self.parFileLabel.setToolTip("Parameter-file is not available.")
+        self.parFileLabel.setObjectName("parfilelabel")
+        self.parFileLabel.mousePressEvent = self.labelParClick
+
+        self.eosFileLabel = QtWidgets.QLabel("eos-file")
+        self.eosFileLabel.setStyleSheet('color: red')
+        self.eosFileLabel.setToolTip("EOS-file is not available.")
+        self.eosFileLabel.setObjectName("eosfilelabel")
+        self.eosFileLabel.mousePressEvent = self.labelEosClick
+
+        self.opaFileLabel = QtWidgets.QLabel("opa-file")
+        self.opaFileLabel.setStyleSheet('color: red')
+        self.opaFileLabel.setToolTip("Opacity-file is not available.")
+        self.opaFileLabel.setObjectName("opafilelabel")
+        self.opaFileLabel.mousePressEvent = self.labelOpaClick
+
+        fileStateLayout.addWidget(self.parFileLabel)
+        fileStateLayout.addWidget(self.eosFileLabel)
+        fileStateLayout.addWidget(self.opaFileLabel)
+
+        # ---------------------------------------------------------------------
         # ---------------------------- Plot window ----------------------------
         # ---------------------------------------------------------------------
 
@@ -854,12 +1019,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.plotBox.mpl_connect("motion_notify_event", self.dataPlotMotion)
         self.plotBox.mpl_connect("button_press_event", self.dataPlotPress)
 
+        # self.threeDPlotBox = sc.PlotWidget3D(self.centralWidget)
+
         # --- Add plot-widget and widget consisting of left layout to splitter
 
         splitter.addWidget(leftgridwid)
         splitter.addWidget(self.plotBox)
-#        splitter.addWidget(self.threeDPlotBox)
-#        self.threeDPlotBox.hide()
+        # splitter.addWidget(self.threeDPlotBox)
+        # self.threeDPlotBox.hide()
 
         # --- Fill up left layout with groups ---
 
@@ -867,6 +1034,7 @@ class MainWindow(QtWidgets.QMainWindow):
         leftgrid.addWidget(posGroup)
         leftgrid.addWidget(dataParamsGroup)
         leftgrid.addWidget(vectorPlotGroup)
+        leftgrid.addWidget(fileStateGroup)
 
         self.centralWidget.setLayout(maingrid)
         self.setCentralWidget(self.centralWidget)
@@ -1087,7 +1255,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 ei = self.modelfile[self.modelind].dataset[self.dsind].box[0]["ei"].data
                 P, T = self.Eos.PandT(rho, ei)
 
-                tau = self.Opa.tau(rho, self.xc3*1.e5, axis=0, T=T, P=P, zb=self.xb3*1.e5)
+                tau = self.Opa.tau(rho, axis=0, T=T, P=P, zb=self.xb3*1.e5)
                 self.tauheight = self.Opa.height(self.xc3, 1.0, axis=0, tau=tau).T
                 self.generalPlotRoutine()
             else:
@@ -1099,13 +1267,8 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.dim == 3:
             self.globBound = []
 
-            xmin = []
-            ymin = []
-            zmin = []
+            xmin, ymin, zmin, xmax, ymax, zmax = ([] for _ in range(6))
 
-            xmax = []
-            ymax = []
-            zmax = []
             for i, mod in enumerate(self.modelfile):
                 for j, dat in enumerate(mod.dataset):
                     data = self.setPlotData(i, j)
@@ -1130,6 +1293,21 @@ class MainWindow(QtWidgets.QMainWindow):
                     min.append(data.min())
                     max.append(data.max())
             self.globBound = [min, max]
+
+    def labelParClick(self, event):
+        if self.par:
+            self.parFileLabel.setStyleSheet('color: green')
+            self.parFileLabel.setToolTip("Parameter-file is available.")
+
+    def labelEosClick(self, event):
+        if self.eos:
+            self.eosFileLabel.setStyleSheet('color: green')
+            self.eosFileLabel.setToolTip("EOS-file is available.")
+
+    def labelOpaClick(self, event):
+        if self.opa:
+            self.opaFileLabel.setStyleSheet('color: green')
+            self.opaFileLabel.setToolTip("Opa-file is available.")
 
     def normCheckChange(self, state):
         if state == QtCore.Qt.Checked:
@@ -1505,7 +1683,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 P, T = self.Eos.PandT(rho, ei)
 
-                data = self.Opa.tau(rho, self.xc3*1.e5, axis=0, T=T, P=P, zb=self.xb3*1.e5)
+                data = self.Opa.tau(rho, axis=0, T=T, P=P, zb=self.xb3*1.e5)
 
                 self.unit = ""
             else:
@@ -1523,10 +1701,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
     def planeCheck(self):
-        # do not plot when changing min norm value (as plotted after changing max value)
         sender = self.sender()
         if sender.objectName() == "plane-Combo":
             self.pos = None
+        # do not plot when changing min norm value (as plotted after changing max value)
         self.plot = False
         if self.dim == 3:
             if self.normCheck.checkState() == QtCore.Qt.Checked:
@@ -1706,8 +1884,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
                     self.x2Slider.setValue(idy)
                     self.x3Slider.setValue(idz)
-            if self.crossCheck.isChecked():
-                self.generalPlotRoutine()
+        else:
+            pass
+        if self.crossCheck.isChecked():
+            self.generalPlotRoutine()
 
     def normChange(self):
         if self.planeCombo.currentText() == "xy":
@@ -1803,12 +1983,13 @@ class MainWindow(QtWidgets.QMainWindow):
 
         if sender.objectName() == "2DRadio":
             self.planeCheck()
-#            self.threeDPlotBox.hide()
+            # self.threeDPlotBox.hide()
             self.plotBox.show()
         elif sender.objectName() == "3DRadio":
-            #            self.threeDPlotBox.visualization.update_plot(self.data)
-            self.plotBox.hide()
-#            self.threeDPlotBox.show()
+            pass
+            # self.threeDPlotBox.Plot(self.data)
+            # self.plotBox.hide()
+            # self.threeDPlotBox.show()
 
     # ----------------------------------------
     # --- Change of quantity via combo box ---
@@ -1940,7 +2121,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.dim == 3:
             if self.threeDRadio.isChecked():
                 pass
-#                self.threeDPlotBox.visualization.update_plot(self.data)
+#                self.threeDPlotBox.Plot(self.data)
 #                if self.vpCheck.isChecked():
 #                    self.threeDPlotBox.visualization.update_vectors(self.u,
 #                        self.v, self.w, float(self.vpXIncEdit.text()))
@@ -1961,7 +2142,6 @@ class MainWindow(QtWidgets.QMainWindow):
                         self.plotBox.plotFig(self.data[:, self.x2ind, :], window, vmin=self.minNorm, vmax=self.maxNorm,
                                              cmap=self.cmCombo.currentCmap, pos=pos,
                                              tauUnity=(self.xc1, self.tauheight[self.x2ind]))
-                        print(self.tauheight[self.x2ind])
                     else:
                         self.plotBox.plotFig(self.data[:, self.x2ind, :], window, vmin=self.minNorm, vmax=self.maxNorm,
                                              cmap=self.cmCombo.currentCmap, pos=pos)
@@ -1977,7 +2157,6 @@ class MainWindow(QtWidgets.QMainWindow):
                         self.plotBox.plotFig(self.data[:, :, self.x1ind], window, vmin=self.minNorm, vmax=self.maxNorm,
                                              cmap=self.cmCombo.currentCmap, pos=pos,
                                              tauUnity=(self.xc2, self.tauheight[:, self.x1ind]))
-                        print(self.tauheight[:, self.x1ind])
                     else:
                         self.plotBox.plotFig(self.data[:, :, self.x1ind], window, vmin=self.minNorm, vmax=self.maxNorm,
                                              cmap=self.cmCombo.currentCmap, pos=pos)

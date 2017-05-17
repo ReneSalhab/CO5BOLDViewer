@@ -12,7 +12,7 @@ import os
 import re
 import collections
 import numpy as np
-from struct import Struct   #, unpack
+from struct import Struct
 
 _uint_from_bytes = Struct('>I')
 
@@ -160,11 +160,21 @@ class File(_EntryMapping):
         for x in self._read_file_entries():
             if isinstance(x, DataSet):
                 self.dataset.append(x)
-            elif isinstance(x, Block):
-                self.block.append(x)
             elif isinstance(x, Entry):
                 entries.append(x)
+            elif isinstance(x, Block):
+                self.block.append(x)
+
         super(File, self).__init__(entries)
+
+    def __repr__(self):
+        slist = [ 'uio' ]
+        slist.append('entries=%d' % len(self._entries))
+        if isinstance(self.block, list):
+            slist.append('blocks=%d' % len(self.block))
+        elif isinstance(self.dataset, list):
+            slist.append('datasets=%d' % len(self.dataset))
+        return '<%s>' % (' '.join(slist))
 
     def __enter__(self):
         return self
