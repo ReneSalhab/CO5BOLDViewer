@@ -5,8 +5,6 @@ Created on Tue Nov 05 10:12:33 2013
 @author: René Georg Salhab
 """
 
-from __future__ import print_function
-
 import os
 import time
 import math
@@ -33,7 +31,7 @@ from eosinter import EosInter
 # noinspection PyUnresolvedReferences
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
-        self.version = "0.8.6"
+        self.version = "0.8.6.5"
         super(MainWindow, self).__init__()
 
         self.initUI()
@@ -317,15 +315,15 @@ class MainWindow(QtWidgets.QMainWindow):
             # specific file corresponds to the recently loaded model
 
             if self.eos:
-                self.eosFileLabel.setStyleSheet('color: yellow')
-                self.eosFileLabel.setToolTip("You loaded a new model, while using an eos-file loaded beforehand."
-                                             " Are you sure that the eos-file is still valid?"
-                                             " If yes, then click on label. Otherwise load a new eos-file.")
+                self.eosFileLabel.setStyleSheet('color: orange')
+                self.eosFileLabel.setToolTip("You loaded a new model, while using an eos-file loaded beforehand.\n"
+                                             "Are you sure that the eos-file is still valid?\n"
+                                             "If yes, then click on label. Otherwise load a new eos-file.")
 
             if self.opa:
-                self.opaFileLabel.setStyleSheet('color: yellow')
-                self.opaFileLabel.setToolTip("You loaded a new model, while using an opa-file loaded beforehand."
-                                             "Are you sure that the opa-file is still valid?"
+                self.opaFileLabel.setStyleSheet('color: orange')
+                self.opaFileLabel.setToolTip("You loaded a new model, while using an opa-file loaded beforehand.\n"
+                                             "Are you sure that the opa-file is still valid?\n"
                                              "If yes, then click on label. Otherwise load a new opa-file.")
 
             if "rhd.par" in os.listdir(path):
@@ -342,9 +340,9 @@ class MainWindow(QtWidgets.QMainWindow):
             else:
                 if self.par:
                     self.stdDirPar = self.stdDirMod
-                    self.parFileLabel.setStyleSheet('color: yellow')
-                    self.parFileLabel.setToolTip("You loaded a new model, while using a par-file loaded beforehand."
-                                                 "Are you sure that the par-file is still valid?"
+                    self.parFileLabel.setStyleSheet('color: orange')
+                    self.parFileLabel.setToolTip("You loaded a new model, while using a par-file loaded beforehand.\n"
+                                                 "Are you sure that the par-file is still valid?\n"
                                                  "If yes, then click on label. Otherwise load a new par-file.")
             mhd = False
             for mod in self.modelfile:
@@ -1255,7 +1253,10 @@ class MainWindow(QtWidgets.QMainWindow):
                 ei = self.modelfile[self.modelind].dataset[self.dsind].box[0]["ei"].data
                 P, T = self.Eos.PandT(rho, ei)
 
-                tau = self.Opa.tau(rho, axis=0, T=T, P=P, zb=self.xb3*1.e5)
+                if self.par and 'c_radhtautop' in self.parFile.keys():
+                    tau = self.Opa.tau(rho, axis=0, T=T, P=P, zb=self.xb3*1.e5, radhtautop=self.parFile['c_radhtautop'])
+                else:
+                    tau = self.Opa.tau(rho, axis=0, T=T, P=P, zb=self.xb3 * 1.e5)
                 self.tauheight = self.Opa.height(self.xc3, 1.0, axis=0, tau=tau).T
                 self.generalPlotRoutine()
             else:
@@ -1683,7 +1684,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 P, T = self.Eos.PandT(rho, ei)
 
-                data = self.Opa.tau(rho, axis=0, T=T, P=P, zb=self.xb3*1.e5)
+                if self.par  and 'c_radhtautop' in self.parFile.keys():
+                    data = self.Opa.tau(rho, axis=0, T=T, P=P, zb=self.xb3*1.e5, radhtautop=self.parFile['c_radhtautop'])
+                else:
+                    data = self.Opa.tau(rho, axis=0, T=T, P=P, zb=self.xb3*1.e5)
 
                 self.unit = ""
             else:

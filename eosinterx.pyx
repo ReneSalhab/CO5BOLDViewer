@@ -159,7 +159,7 @@ cpdef PandT3D(np.ndarray[DTYPEf_t, ndim=3] rho, np.ndarray[DTYPEf_t, ndim=3] ei,
                                              (CT[13, i1[i, j, k], i2[i, j, k]] + x1ta[i, j, k] *
                                               (CT[14, i1[i, j, k], i2[i, j, k]] + x1ta[i, j, k] *
                                                CT[15, i1[i, j, k], i2[i, j, k]]))))))
-    return P, T #ne.evaluate("exp(P)"), ne.evaluate("exp(T)")
+    return P, T
 
 
 @cython.boundscheck(False)
@@ -212,7 +212,7 @@ cpdef PandT4D(np.ndarray[DTYPEf_t, ndim=4] rho, np.ndarray[DTYPEf_t, ndim=4] ei,
                                          (CT[13, i1[i, j, k, l], i2[i, j, k, l]] + x1ta[i, j, k, l] *
                                           (CT[14, i1[i, j, k, l], i2[i, j, k, l]] + x1ta[i, j, k, l] *
                                            CT[15, i1[i, j, k, l], i2[i, j, k, l]]))))))
-    return P, T #ne.evaluate("exp(P)"), ne.evaluate("exp(T)")
+    return P, T
 
 
 @cython.cdivision(True)
@@ -782,8 +782,7 @@ cpdef height4Dvec(np.ndarray[DTYPEf_t, ndim=4] tau, np.ndarray[DTYPEf_t, ndim=1]
 @cython.cdivision(True)
 @cython.boundscheck(False) # turn off bounds-checking for entire function
 @cython.wraparound(False)  # turn off bounds-checking for entire function
-cpdef interp3d(np.ndarray[DTYPEf_t, ndim=1] x, np.ndarray[DTYPEf_t, ndim=3] y,
-               np.ndarray[DTYPEf_t, ndim=2] new_x):
+cpdef interp3d(np.ndarray[DTYPEf_t, ndim=1] x, np.ndarray[DTYPEf_t, ndim=3] y, np.ndarray[DTYPEf_t, ndim=2] new_x):
     """
     interp3d(x, y, new_x)
 
@@ -823,8 +822,7 @@ cpdef interp3d(np.ndarray[DTYPEf_t, ndim=1] x, np.ndarray[DTYPEf_t, ndim=3] y,
 @cython.cdivision(True)
 @cython.boundscheck(False) # turn off bounds-checking for entire function
 @cython.wraparound(False)  # turn off bounds-checking for entire function
-cpdef interp4d(np.ndarray[DTYPEf_t, ndim=1] x, np.ndarray[DTYPEf_t, ndim=4] y,
-                 np.ndarray[DTYPEf_t, ndim=3] new_x):
+cpdef interp4d(np.ndarray[DTYPEf_t, ndim=1] x, np.ndarray[DTYPEf_t, ndim=4] y, np.ndarray[DTYPEf_t, ndim=3] new_x):
     """
     interp4d(x, y, new_x)
 
@@ -1222,20 +1220,16 @@ cpdef cubeinterp4dvec(np.ndarray[DTYPEf_t, ndim=4] x, np.ndarray[DTYPEf_t, ndim=
 @cython.wraparound(False)  # turn off bounds-checking for entire function
 cpdef cubeinterp3dval(np.ndarray[DTYPEf_t, ndim=3] x, np.ndarray[DTYPEf_t, ndim=3] y, DTYPEf_t new_x):
     """
-    interp3d(x, y, new_x)
+    cubeinterp3dval(x, y, new_x)
 
-    Performs linear interpolation over the last dimension of a 3D array,
-    according to new values from a 2D array new_x. Thus, interpolate
-    y[i, j, :] for new_x[i, j].
+    Performs linear interpolation over the last dimension of a 3D array, according to new values from a 2D array new_x.
+    Thus, interpolate y[i, j, :] defined at x[i, j, :] onto new_x[i, j].
 
     Parameters
     ----------
-    x : 1-D ndarray (double type)
-        Array containg the x (abcissa) values. Must be monotonically
-        increasing.
-    y : 3-D ndarray (double type)
-        Array containing the y values to interpolate.
-    x_new: double, new x-position to interpolate.
+    x : 3D ndarray (float), positions of y values. Must be strictly monotonically increasing along last axis.
+    y : 3D ndarray (float), y values.
+    x_new: float,  new x-positions of interpolation. Will lead to plane perpendicular to last axis.
 
     Returns
     -------
@@ -1263,16 +1257,16 @@ cpdef cubeinterp3dval(np.ndarray[DTYPEf_t, ndim=3] x, np.ndarray[DTYPEf_t, ndim=
 @cython.wraparound(False)  # turn off bounds-checking for entire function
 cpdef cubeinterp4dval(np.ndarray[DTYPEf_t, ndim=4] x, np.ndarray[DTYPEf_t, ndim=4] y, DTYPEf_t new_x):
     """
-    interp4d(x, y, new_x)
+    cubeinterp4dval(x, y, new_x)
 
     Performs linear interpolation over the last dimension of a 4D array, according to new values from a 3D array new_x.
-    Thus, interpolate y[i, j, :] for new_x[i, j].
+    Thus, interpolate y[i, j, k, :] defined at x[i, j, k, :] onto new_x[i, j, k].
 
     Parameters
     ----------
-    x : 1D ndarray (double type), positions of y values. Must be strictly monotonically increasing.
-    y : 4D ndarray (double type), y values to interpolate.
-    x_new: 3D ndarray (double type),  new x-positions to interpolate.
+    x : 4D ndarray (float), positions of y values. Must be strictly monotonically increasing along last axis.
+    y : 4D ndarray (float), y values.
+    x_new: float,  new x-positions of interpolation. Will lead to plane perpendicular to last axis.
 
     Returns
     -------

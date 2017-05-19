@@ -186,6 +186,7 @@ class Opac:
                               first. Will be ignored, if kappa is provided.
                     :param P: ndarray, pressure. If kappa is not provided, but T and P, the opacity will be computed
                               first. Will be ignored, if kappa is provided.
+                    :param radhtautop: float, Scale height of optical depth at top (from .par-file). Default: -1
                     :param iBand: int, optional, opacity-band. If kappa is not provided, but T and P, the opacity will
                                   be computed first. Will be ignored, if kappa is provided. Default: 0
                     :param z: 1D ndarray, height-scale. Has to have the same length like the vertical axis of rho and
@@ -243,8 +244,8 @@ class Opac:
         else:
             raise ValueError("Either 'zb' or 'z' has to be provided.")
 
-        if 'radHtautop' in kwargs:
-            radHtautop = np.float32(kwargs['radHtautop'])
+        if 'radhtautop' in kwargs:
+            radHtautop = np.float32(kwargs['radhtautop'])
         else:
             radHtautop = np.float32(-1.0)
 
@@ -295,6 +296,7 @@ class Opac:
                               computed first. Will be ignored, if tau, or kappa and rho are provided.
                     :param P: ndarray, pressure. If provided, along with rho and T, kappa and optical depth will be
                               computed first. Will be ignored, if tau, or kappa and rho are provided.
+                    :param radhtautop: float, Scale height of optical depth at top (from .par-file). Default: -1
                     :param iBand: int, optional, opacity-band. If T, rho, and P, or kappa and rho are provdided, kappa
                                   and optical depth will be computed first. Will be ignored, if tau is provided.
                                   Default: 0
@@ -352,10 +354,16 @@ class Opac:
             zb = z - dz/2
             zb = np.append(zb, zb[-1] + dz[-1])
 
+        if 'radhtautop' in kwargs:
+            radhtautop = np.float32(kwargs['radhtautop'])
+        else:
+            radhtautop = np.float32(-1.0)
+
         if 'rho' in kwargs:
             if 'kappa' in kwargs:
                 if 'iBand' in kwargs:
-                    tau = self.tau(kwargs['rho'], axis=axis, kappa=kwargs['kappa'], zb=zb, iBand=kwargs['iBand'])
+                    tau = self.tau(kwargs['rho'], axis=axis, kappa=kwargs['kappa'], zb=zb, radhtautop=radhtautop,
+                                   iBand=kwargs['iBand'])
                 else:
                     tau = self.tau(kwargs['rho'], axis=axis, kappa=kwargs['kappa'], zb=zb)
             elif 'T' in kwargs and 'P' in kwargs:
@@ -420,6 +428,7 @@ class Opac:
                               computed first. Will be ignored, if tau, or kappa and rho are provided.
                     :param P: ndarray, pressure. If provided, along with rho and T, kappa and optical depth will be
                               computed first. Will be ignored, if tau, or kappa and rho are provided.
+                    :param radhtautop: float, Scale height of optical depth at top (from .par-file). Default: -1
                     :param iBand: int, optional, opacity-band. If T, rho, and P, or kappa and rho are provdided, kappa
                                   and optical depth will be computed first. Will be ignored, if tau is provided.
                                   Default: 0
@@ -477,16 +486,22 @@ class Opac:
                 else:
                     raise ValueError("Either 'zb' or 'z' has to be provided, if 'tau' is not available.")
 
+                if 'radhtautop' in kwargs:
+                    radhtautop = np.float32(kwargs['radhtautop'])
+                else:
+                    radhtautop = np.float32(-1.0)
+
                 if 'kappa' in kwargs:
                     kappa = kwargs['kappa'].astype(np.float32)
-                    tau = self.tau(kwargs['rho'], axis=axis, kappa=kappa, zb=zb)
+                    tau = self.tau(kwargs['rho'], axis=axis, kappa=kappa, zb=zb, radhtautop=radhtautop)
                 elif 'T' in kwargs and 'P' in kwargs:
                     T = kwargs['T'].astype(np.float32)
                     P = kwargs['P'].astype(np.float32)
                     if 'iBand' in kwargs:
-                        tau = self.tau(kwargs['rho'], axis=axis, P=P, T=T, zb=zb, iBand=kwargs['iBand'])
+                        tau = self.tau(kwargs['rho'], axis=axis, P=P, T=T, zb=zb, radhtautop=radhtautop,
+                                       iBand=kwargs['iBand'])
                     else:
-                        tau = self.tau(kwargs['rho'], axis=axis, P=P, T=T, zb=zb)
+                        tau = self.tau(kwargs['rho'], axis=axis, P=P, T=T, zb=zb, radhtautop=radhtautop)
                 else:
                     raise ValueError("Either the keyword-argument 'kappa', or 'T' (temperature) and 'P' (pressure) have"
                                      " to be provided.")

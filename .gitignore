@@ -13,3 +13,4 @@
 *.pyd
 *.exp
 init.log
+*.xcf

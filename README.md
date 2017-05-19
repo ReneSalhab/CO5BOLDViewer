@@ -1,4 +1,4 @@
-# CO5BOLDViewer 0.8.6
+# CO5BOLDViewer 0.8.6.5
 
 A QT-based viewer of .uio-data used by CO5BOLD. Written in Python 3.5.
 
@@ -30,7 +30,11 @@ compile eosinterx.pyx with
 
     bash& python setup.py build_ext --inplace
 
-Ipython won´t work for compilation.
+Ipython won´t work for compilation. If the compiler cannot find openmp
+
+    bash& python setup_np.py build_ext --inplace
+
+should be used.
 
 Notes: It is necessary that a C-compiler is installed. Some functions are parallelized with openmp.
 
