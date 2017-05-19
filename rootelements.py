@@ -1254,7 +1254,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 P, T = self.Eos.PandT(rho, ei)
 
                 if self.par and 'c_radhtautop' in self.parFile.keys():
-                    tau = self.Opa.tau(rho, axis=0, T=T, P=P, zb=self.xb3*1.e5, radhtautop=self.parFile['c_radhtautop'])
+                    tau = self.Opa.tau(rho, axis=0, T=T, P=P, zb=self.xb3*1.e5,
+                                       radhtautop=self.parFile['c_radhtautop'].data)
                 else:
                     tau = self.Opa.tau(rho, axis=0, T=T, P=P, zb=self.xb3 * 1.e5)
                 self.tauheight = self.Opa.height(self.xc3, 1.0, axis=0, tau=tau).T
@@ -1685,7 +1686,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 P, T = self.Eos.PandT(rho, ei)
 
                 if self.par  and 'c_radhtautop' in self.parFile.keys():
-                    data = self.Opa.tau(rho, axis=0, T=T, P=P, zb=self.xb3*1.e5, radhtautop=self.parFile['c_radhtautop'])
+                    data = self.Opa.tau(rho, axis=0, T=T, P=P, zb=self.xb3*1.e5,
+                                        radhtautop=self.parFile['c_radhtautop'].data)
                 else:
                     data = self.Opa.tau(rho, axis=0, T=T, P=P, zb=self.xb3*1.e5)
 
