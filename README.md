@@ -1,4 +1,4 @@
-# CO5BOLDViewer 0.8.6.5
+# CO5BOLDViewer 0.8.7
 
 A QT-based viewer of .uio-data used by CO5BOLD. Written in Python 3.5.
 
@@ -23,7 +23,10 @@ The following modules are used:
 - collections
 
 ## Installation
-    
+
+For using CO5BOLDViewer python 3.x is needed. For this, it is recommended to install Anaconda from Continuum
+(https://www.continuum.io/downloads), which brings the needed modules with it.
+
 To be able to compute temperature, pressure, entropy, optical depth and opacity, the compilation of
 the cython-based eosinterx.pyx is necessary. For this, go to the directory you installed CO5BOLDViewer
 compile eosinterx.pyx with
@@ -107,9 +110,9 @@ Example:
                                                 #                'n': 'Velocity 1', 'p': '4', 'u': 'cm/s'}
 
 The same holds for the Box-class. They consist of a list of entries, which itself is handled like a dictionary. The
-elements of the box-list are the data-cubes of the different quantities stored by CO5BOLD, so "rho", "ei", "v1", "v2", "v3", the axes
-"xc1", "xc2", "xc3", "xb1", "xb2", "xb3" and if the mhd-module was used, "bb1", "bb2" and, "bb3". These are entries
-of the box-list.
+elements of the box-list are the data-cubes of the different quantities stored by CO5BOLD, so "rho", "ei", "v1", "v2",
+"v3", the axes "xc1", "xc2", "xc3", "xb1", "xb2", "xb3" and if the mhd-module was used, "bb1", "bb2" and, "bb3". These
+are entries of the box-list.
 
 As the File-, DataSet and Box-classes are behaving as dictionaries, all included entries of each object can be printed
 out with the keys-method, i.e.
@@ -173,13 +176,13 @@ ss a default. Usage:
     opa.kappa(T, P, iBand=1)    # computes the opacity of the 2. band.
  
 For tau there are several possibilities. The mandatory parameter is mass-density rho. Then a scale-height has to be
-handed, the cell-centered height-scale z, or, preferably, the boundary-centered height-scale zb. If the latter is provided, the
-vertical cell-sizes are computed directly. If the former is handed, the upper-most cell-size will be set by the cell-size
-one layer below. For the computation the opacity can be handed directly (keyword 'kappa'), or the temperature and
-pressure which leads to the computation of the opacity before computing optical depth. Here the band can be specified
-again. Also it has to be clear, which axis is the LOS-axis. Internally the quantities will be transposed in a way that
-last axis is parallel to the LOS and after computation transposed back. By default axis is set to -1 (last axis of the
-arrays) So these are the possibilities for using tau:
+handed, the cell-centered height-scale z, or, preferably, the boundary-centered height-scale zb. If the latter is
+provided, the vertical cell-sizes are computed directly. If the former is handed, the upper-most cell-size will be set
+by the cell-size one layer below. For the computation the opacity can be handed directly (keyword 'kappa'), or the
+temperature and pressure which leads to the computation of the opacity before computing optical depth. Here the band can
+be specified again. Also it has to be clear, which axis is the LOS-axis. Internally the quantities will be transposed in
+a way that last axis is parallel to the LOS and after computation transposed back. By default axis is set to -1 (last
+axis of the arrays) So these are the possibilities for using tau:
 
     opa.tau(rho, axis=0, z=z, kappa) 
     opa.tau(rho, axis=1, zb=zb, T=T, P=P, iBand=1)
@@ -210,8 +213,8 @@ Examples:
 ### ...use the par-module
 
 The par-module consists of the ParFile-class, which can be used like the File-class of the uio-routine. It only has
-Entry-objects, which means that there is no other sub-class. The File-object behaves like a dictionary, but the values are
-stored in the member "data" (like in the uio-module).
+Entry-objects, which means that there is no other sub-class. The File-object behaves like a dictionary, but the values
+are stored in the member "data" (like in the uio-module).
 
 Example:
 
@@ -226,15 +229,26 @@ Example:
 
 ## Change-Log
 
+### Version 0.8.7
+
+- NEW: Plot of 1D-data is available
+- NEW: Added splash-screen
+- NEW: Added indicators for eos-, par- and opta-file
+- NEW: Parameter-file is loaded automatically, if rhd.par is available in folder of model-data
+- NEW: Parameter-file can be loaded manually
+- NEW: radhtautop in parameter-file is used for computation of tau (before, the default value -1 was used)
+- MODIFICATION: height and quant_at_tau methids in eosinter take "radhtautop" keyword-argument to pass it to tau-method
+
 ### Version 0.8.6
 
 - FIX: Computation of height-profiles of iso-tau levels resulted in NANs when tau is not provided
-- FIX: Computation of quantities at iso-tau levels resulted in NANs if tau provided.
+- FIX: Computation of quantities at iso-tau levels resulted in NANs if tau provided to function quant_at_tau.
 - MODIFICATION: height-scale z for computation of tau was not necessary. Is removed as parameter
 - MODIFICATION: ParFile-class in par-module behaves similar to File-class of uio-module.
 - MODIFICATION: representation of File-class in uio-module changed
 - NEW: Introduced HOW TOs in README.md
-- NEW: If new model is loaded, "rhd.par" is searched within same directory. If available, it will be loaded and used to find the right eos- and opta-files
+- NEW: If new model is loaded, "rhd.par" is searched within same directory. If available, it will be loaded and used to
+       find the right eos- and opta-files
 - NEW: Option to load parameter-file included in "File"-dropdown menu of the menu-bar
 - NEW: Introduced indicators for showing if parameter-, eos-, or opta-files is loaded
 - FIX: some minor fixes
@@ -243,7 +257,7 @@ Example:
 
 - FIX: When aborting file-load, error occurred
 - FIX: menu-bar was not usable under MacOS. Now it is in the window of CO5BOLDViewer and working.
-- NEW: tau=1 location at side-view plotable, of eos and opa are provided
+- NEW: tau=1 location at side-view plotable, if eos and opa are provided
 - NEW: new setup_np.py (not parallel) provided, if compilation fails with setup.py, because of openmp
 
 ### Version 0.8.4
