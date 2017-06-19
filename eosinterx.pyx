@@ -393,7 +393,7 @@ cpdef logPT2kappa3D(np.ndarray[DTYPEf_t, ndim=3] log10P, np.ndarray[DTYPEf_t, nd
                     np.ndarray[DTYPEf_t, ndim=1] tabDTB, np.ndarray[DTYPE_t, ndim=1] idxTBN,
                     np.ndarray[DTYPEf_t, ndim=1] tabPBN, np.ndarray[DTYPEf_t, ndim=1] tabDPB,
                     np.ndarray[DTYPE_t, ndim=1] idxPBN, DTYPE_t iband):
-    cdef int i, j, k, iTx, iPx, nTx, nPx
+    cdef int i, j, k, iTx, iTx0, iTx1, iTx2, iPx, iPx0, iPx1, iPx2, nTx, nPx
     cdef int nx = log10T.shape[0]
     cdef int ny = log10T.shape[1]
     cdef int nz = log10T.shape[2]
@@ -417,6 +417,9 @@ cpdef logPT2kappa3D(np.ndarray[DTYPEf_t, ndim=3] log10P, np.ndarray[DTYPEf_t, nd
                 else:
                     nTx = NT - 1
                 iTx = int_min(int_max(1, nTx), NT - 1)
+                iTx0 = iTx - 1
+                iTx1 = iTx + 1
+                iTx2 = iTx + 2
 
                 if Px < tabPBN[1]:
                     nPx = int((Px - tabPBN[0]) / tabDPB[0]) + idxPBN[0]
@@ -427,43 +430,46 @@ cpdef logPT2kappa3D(np.ndarray[DTYPEf_t, ndim=3] log10P, np.ndarray[DTYPEf_t, nd
                 else:
                     nPx = NP - 1
                 iPx = int_min(int_max(1, nPx), NP - 1)
+                iPx0 = iPx - 1
+                iPx1 = iPx + 1
+                iPx2 = iPx + 2
 
-                gT1 =   (Tx            - tabT[iTx]    ) * (Tx            - tabT[iTx + 1]) * (Tx        - tabT[iTx + 1]) /\
-                      ( (tabT[iTx-1]   - tabT[iTx]    ) * (tabT[iTx - 1] - tabT[iTx + 1]) * (tabT[iTx] - tabT[iTx + 1]))
-                gT2 =   (Tx            - tabT[iTx + 1]) * \
-                      (-(tabT[iTx - 1] - tabT[iTx + 2]) * (Tx            - tabT[iTx]    ) * (Tx        - tabT[iTx]    ) -
-                        (tabT[iTx]     - tabT[iTx + 1]) * (tabT[iTx]     - tabT[iTx + 2]) * (Tx        - tabT[iTx - 1])) /\
-                      ( (tabT[iTx - 1] - tabT[iTx]    ) * (tabT[iTx]     - tabT[iTx + 1]) * (tabT[iTx] - tabT[iTx + 1]) *
-                        (tabT[iTx]     - tabT[iTx + 2]))
-                gT3 =   (Tx            - tabT[iTx]    ) * \
-                      ( (tabT[iTx - 1] - tabT[iTx + 2]) * (Tx        - tabT[iTx + 1]) * (Tx        - tabT[iTx + 1]) -
-                        (tabT[iTx - 1] - tabT[iTx + 1]) * (tabT[iTx] - tabT[iTx + 1]) * (Tx        - tabT[iTx + 2])) /\
-                      ( (tabT[iTx - 1] - tabT[iTx + 1]) * (tabT[iTx] - tabT[iTx + 1]) * (tabT[iTx] - tabT[iTx + 1]) *
-                        (tabT[iTx + 1] - tabT[iTx + 2]))
-                gT4 =  -(Tx            - tabT[iTx]    ) * (Tx        - tabT[iTx]    ) * (Tx        - tabT[iTx + 1]) /\
-                      ( (tabT[iTx]     - tabT[iTx + 1]) * (tabT[iTx] - tabT[iTx + 2]) * (tabT[iTx + 1] - tabT[iTx + 2]))
+                gT1 =   (Tx         - tabT[iTx] ) * (Tx         - tabT[iTx1]) * (Tx        - tabT[iTx1]) /\
+                      ( (tabT[iTx0] - tabT[iTx] ) * (tabT[iTx0] - tabT[iTx1]) * (tabT[iTx] - tabT[iTx1]))
+                gT2 =   (Tx         - tabT[iTx1]) * \
+                      (-(tabT[iTx0] - tabT[iTx2]) * (Tx         - tabT[iTx] ) * (Tx        - tabT[iTx] ) -
+                        (tabT[iTx]  - tabT[iTx1]) * (tabT[iTx]  - tabT[iTx2]) * (Tx        - tabT[iTx0])) /\
+                      ( (tabT[iTx0] - tabT[iTx] ) * (tabT[iTx]  - tabT[iTx1]) * (tabT[iTx] - tabT[iTx1]) *
+                        (tabT[iTx]  - tabT[iTx2]))
+                gT3 =   (Tx         - tabT[iTx] ) * \
+                      ( (tabT[iTx0] - tabT[iTx2]) * (Tx         - tabT[iTx1]) * (Tx        - tabT[iTx1]) -
+                        (tabT[iTx0] - tabT[iTx1]) * (tabT[iTx]  - tabT[iTx1]) * (Tx        - tabT[iTx2])) /\
+                      ( (tabT[iTx0] - tabT[iTx1]) * (tabT[iTx]  - tabT[iTx1]) * (tabT[iTx] - tabT[iTx1]) *
+                        (tabT[iTx1] - tabT[iTx2]))
+                gT4 =  -(Tx         - tabT[iTx] ) * (Tx         - tabT[iTx] ) * (Tx        - tabT[iTx1]) /\
+                      ( (tabT[iTx]  - tabT[iTx1]) * (tabT[iTx]  - tabT[iTx2]) * (tabT[iTx1]- tabT[iTx2]))
 
                 gP1 = (Px - tabP[iPx]) * (Px - tabP[iPx+1]) * (Px - tabP[iPx+1]) / ((tabP[iPx-1] - tabP[iPx]) *
-                        (tabP[iPx-1] - tabP[iPx+1]) * (tabP[iPx] - tabP[iPx + 1]))
-                gP2 = (Px - tabP[iPx + 1]) * (-(tabP[iPx - 1] - tabP[iPx + 2]) * (Px - tabP[iPx]) * (Px - tabP[iPx]) -
-                        (tabP[iPx] - tabP[iPx + 1]) * (tabP[iPx] - tabP[iPx + 2]) * (Px - tabP[iPx - 1])) / (
-                        (tabP[iPx - 1] - tabP[iPx]) * (tabP[iPx] - tabP[iPx + 1]) * (tabP[iPx] - tabP[iPx + 1]) *
-                        (tabP[iPx] - tabP[iPx + 2]))
-                gP3 = (Px - tabP[iPx]) * ((tabP[iPx - 1] - tabP[iPx + 2]) * (Px - tabP[iPx + 1]) * (Px - tabP[iPx + 1]) -
-                        (tabP[iPx - 1] - tabP[iPx + 1]) * (tabP[iPx] - tabP[iPx + 1]) * (Px - tabP[iPx + 2])) / (
-                        (tabP[iPx - 1] - tabP[iPx + 1]) * (tabP[iPx] - tabP[iPx + 1]) * (tabP[iPx] - tabP[iPx + 1]) *
-                        (tabP[iPx + 1] - tabP[iPx + 2]))
-                gP4 = -(Px - tabP[iPx]) * (Px - tabP[iPx]) * (Px - tabP[iPx + 1]) / ((tabP[iPx] - tabP[iPx + 1]) *
-                        (tabP[iPx] - tabP[iPx + 2]) * (tabP[iPx + 1] - tabP[iPx + 2]))
+                        (tabP[iPx-1] - tabP[iPx+1]) * (tabP[iPx] - tabP[iPx1]))
+                gP2 = (Px - tabP[iPx1]) * (-(tabP[iPx0] - tabP[iPx2]) * (Px - tabP[iPx]) * (Px - tabP[iPx]) -
+                        (tabP[iPx] - tabP[iPx1]) * (tabP[iPx] - tabP[iPx2]) * (Px - tabP[iPx0])) / (
+                        (tabP[iPx0] - tabP[iPx]) * (tabP[iPx] - tabP[iPx1]) * (tabP[iPx] - tabP[iPx1]) *
+                        (tabP[iPx] - tabP[iPx2]))
+                gP3 = (Px - tabP[iPx]) * ((tabP[iPx0] - tabP[iPx2]) * (Px - tabP[iPx1]) * (Px - tabP[iPx1]) -
+                        (tabP[iPx0] - tabP[iPx1]) * (tabP[iPx] - tabP[iPx1]) * (Px - tabP[iPx2])) / (
+                        (tabP[iPx0] - tabP[iPx1]) * (tabP[iPx] - tabP[iPx1]) * (tabP[iPx] - tabP[iPx1]) *
+                        (tabP[iPx1] - tabP[iPx2]))
+                gP4 = -(Px - tabP[iPx]) * (Px - tabP[iPx]) * (Px - tabP[iPx1]) / ((tabP[iPx] - tabP[iPx1]) *
+                        (tabP[iPx] - tabP[iPx2]) * (tabP[iPx1] - tabP[iPx2]))
 
-                fP1 = tabKap[iTx - 1, iPx - 1, iband] * gT1 + tabKap[iTx, iPx - 1, iband] * gT2 + \
-                      tabKap[iTx + 1, iPx - 1, iband] * gT3 + tabKap[iTx + 2, iPx - 1, iband] * gT4
-                fP2 = tabKap[iTx - 1, iPx, iband] * gT1 + tabKap[iTx, iPx, iband] * gT2 + \
-                      tabKap[iTx + 1, iPx, iband] * gT3 + tabKap[iTx + 2, iPx, iband] * gT4
-                fP3 = tabKap[iTx - 1, iPx + 1, iband] * gT1 + tabKap[iTx, iPx + 1, iband] * gT2 + \
-                      tabKap[iTx + 1, iPx + 1, iband] * gT3 + tabKap[iTx + 2, iPx + 1, iband] * gT4
-                fP4 = tabKap[iTx - 1, iPx + 2, iband] * gT1 + tabKap[iTx, iPx + 2, iband] * gT2 + \
-                      tabKap[iTx + 1, iPx + 2, iband] * gT3 + tabKap[iTx + 2, iPx + 2, iband] * gT4
+                fP1 = tabKap[iTx0, iPx0, iband] * gT1 + tabKap[iTx, iPx0, iband] * gT2 + \
+                      tabKap[iTx1, iPx0, iband] * gT3 + tabKap[iTx2, iPx0, iband] * gT4
+                fP2 = tabKap[iTx0, iPx, iband] * gT1 + tabKap[iTx, iPx, iband] * gT2 + \
+                      tabKap[iTx1, iPx, iband] * gT3 + tabKap[iTx2, iPx, iband] * gT4
+                fP3 = tabKap[iTx0, iPx1, iband] * gT1 + tabKap[iTx, iPx1, iband] * gT2 + \
+                      tabKap[iTx1, iPx1, iband] * gT3 + tabKap[iTx2, iPx1, iband] * gT4
+                fP4 = tabKap[iTx0, iPx2, iband] * gT1 + tabKap[iTx, iPx2, iband] * gT2 + \
+                      tabKap[iTx1, iPx2, iband] * gT3 + tabKap[iTx2, iPx2, iband] * gT4
 
                 xkaros[i, j, k] = fP1 * gP1 + fP2 * gP2 + fP3 * gP3 + fP4 * gP4
     return xkaros
@@ -478,7 +484,7 @@ cpdef logPT2kappa4D(np.ndarray[DTYPEf_t, ndim=4] log10P, np.ndarray[DTYPEf_t, nd
                     np.ndarray[DTYPEf_t, ndim=1] tabDTB, np.ndarray[DTYPE_t, ndim=1] idxTBN,
                     np.ndarray[DTYPEf_t, ndim=1] tabPBN, np.ndarray[DTYPEf_t, ndim=1] tabDPB,
                     np.ndarray[DTYPE_t, ndim=1] idxPBN, DTYPE_t iband):
-    cdef int i, j, k, l, iTx, iPx, nTx, nPx
+    cdef int i, j, k, l, iTx, iTx0, iTx1, iTx2, iPx, iPx0, iPx1, iPx2, nTx, nPx
     cdef int nt = log10T.shape[0]
     cdef int nx = log10T.shape[1]
     cdef int ny = log10T.shape[2]
@@ -504,6 +510,9 @@ cpdef logPT2kappa4D(np.ndarray[DTYPEf_t, ndim=4] log10P, np.ndarray[DTYPEf_t, nd
                     else:
                         nTx = NT - 1
                     iTx = int_min(int_max(1, nTx), NT - 1)
+                    iTx0 = iTx - 1
+                    iTx1 = iTx + 1
+                    iTx2 = iTx + 2
 
                     if Px < tabPBN[1]:
                         nPx = int((Px - tabPBN[0]) / tabDPB[0]) + idxPBN[0]
@@ -514,43 +523,46 @@ cpdef logPT2kappa4D(np.ndarray[DTYPEf_t, ndim=4] log10P, np.ndarray[DTYPEf_t, nd
                     else:
                         nPx = NP - 1
                     iPx = int_min(int_max(1, nPx), NP - 1)
+                    iPx0 = iPx - 1
+                    iPx1 = iPx + 1
+                    iPx2 = iPx + 2
 
-                    gT1 =   (Tx            - tabT[iTx]    ) * (Tx            - tabT[iTx + 1]) * (Tx        - tabT[iTx + 1]) /\
-                          ( (tabT[iTx-1]   - tabT[iTx]    ) * (tabT[iTx - 1] - tabT[iTx + 1]) * (tabT[iTx] - tabT[iTx + 1]))
-                    gT2 =   (Tx            - tabT[iTx + 1]) * \
-                          (-(tabT[iTx - 1] - tabT[iTx + 2]) * (Tx            - tabT[iTx]    ) * (Tx        - tabT[iTx]    ) -
-                            (tabT[iTx]     - tabT[iTx + 1]) * (tabT[iTx]     - tabT[iTx + 2]) * (Tx        - tabT[iTx - 1])) /\
-                          ( (tabT[iTx - 1] - tabT[iTx]    ) * (tabT[iTx]     - tabT[iTx + 1]) * (tabT[iTx] - tabT[iTx + 1]) *
-                            (tabT[iTx]     - tabT[iTx + 2]))
-                    gT3 =   (Tx            - tabT[iTx]    ) * \
-                          ( (tabT[iTx - 1] - tabT[iTx + 2]) * (Tx        - tabT[iTx + 1]) * (Tx        - tabT[iTx + 1]) -
-                            (tabT[iTx - 1] - tabT[iTx + 1]) * (tabT[iTx] - tabT[iTx + 1]) * (Tx        - tabT[iTx + 2])) /\
-                          ( (tabT[iTx - 1] - tabT[iTx + 1]) * (tabT[iTx] - tabT[iTx + 1]) * (tabT[iTx] - tabT[iTx + 1]) *
-                            (tabT[iTx + 1] - tabT[iTx + 2]))
-                    gT4 =  -(Tx            - tabT[iTx]    ) * (Tx        - tabT[iTx]    ) * (Tx        - tabT[iTx + 1]) /\
-                          ( (tabT[iTx]     - tabT[iTx + 1]) * (tabT[iTx] - tabT[iTx + 2]) * (tabT[iTx + 1] - tabT[iTx + 2]))
+                    gT1 =   (Tx         - tabT[iTx] ) * (Tx         - tabT[iTx1]) * (Tx        - tabT[iTx1]) /\
+                          ( (tabT[iTx0] - tabT[iTx] ) * (tabT[iTx0] - tabT[iTx1]) * (tabT[iTx] - tabT[iTx1]))
+                    gT2 =   (Tx         - tabT[iTx1]) * \
+                          (-(tabT[iTx0] - tabT[iTx2]) * (Tx         - tabT[iTx] ) * (Tx        - tabT[iTx]  ) -
+                            (tabT[iTx]  - tabT[iTx1]) * (tabT[iTx]  - tabT[iTx2]) * (Tx        - tabT[iTx0])) /\
+                          ( (tabT[iTx0] - tabT[iTx] ) * (tabT[iTx]  - tabT[iTx1]) * (tabT[iTx] - tabT[iTx1]) *
+                            (tabT[iTx]  - tabT[iTx2]))
+                    gT3 =   (Tx         - tabT[iTx] ) * \
+                          ( (tabT[iTx0] - tabT[iTx2]) * (Tx         - tabT[iTx1]) * (Tx         - tabT[iTx1]) -
+                            (tabT[iTx0] - tabT[iTx1]) * (tabT[iTx]  - tabT[iTx1]) * (Tx         - tabT[iTx2])) /\
+                          ( (tabT[iTx0] - tabT[iTx1]) * (tabT[iTx]  - tabT[iTx1]) * (tabT[iTx]  - tabT[iTx1]) *
+                            (tabT[iTx1] - tabT[iTx2]))
+                    gT4 =  -(Tx         - tabT[iTx] ) * (Tx         - tabT[iTx] ) * (Tx         - tabT[iTx1]) /\
+                          ( (tabT[iTx]  - tabT[iTx1]) * (tabT[iTx]  - tabT[iTx2]) * (tabT[iTx1] - tabT[iTx2]))
 
                     gP1 = (Px - tabP[iPx]) * (Px - tabP[iPx+1]) * (Px - tabP[iPx+1]) / ((tabP[iPx-1] - tabP[iPx]) *
-                            (tabP[iPx-1] - tabP[iPx+1]) * (tabP[iPx] - tabP[iPx + 1]))
-                    gP2 = (Px - tabP[iPx + 1]) * (-(tabP[iPx - 1] - tabP[iPx + 2]) * (Px - tabP[iPx]) * (Px - tabP[iPx]) -
-                            (tabP[iPx] - tabP[iPx + 1]) * (tabP[iPx] - tabP[iPx + 2]) * (Px - tabP[iPx - 1])) / (
-                            (tabP[iPx - 1] - tabP[iPx]) * (tabP[iPx] - tabP[iPx + 1]) * (tabP[iPx] - tabP[iPx + 1]) *
-                            (tabP[iPx] - tabP[iPx + 2]))
-                    gP3 = (Px - tabP[iPx]) * ((tabP[iPx - 1] - tabP[iPx + 2]) * (Px - tabP[iPx + 1]) * (Px - tabP[iPx + 1]) -
-                            (tabP[iPx - 1] - tabP[iPx + 1]) * (tabP[iPx] - tabP[iPx + 1]) * (Px - tabP[iPx + 2])) / (
-                            (tabP[iPx - 1] - tabP[iPx + 1]) * (tabP[iPx] - tabP[iPx + 1]) * (tabP[iPx] - tabP[iPx + 1]) *
-                            (tabP[iPx + 1] - tabP[iPx + 2]))
-                    gP4 = -(Px - tabP[iPx]) * (Px - tabP[iPx]) * (Px - tabP[iPx + 1]) / ((tabP[iPx] - tabP[iPx + 1]) *
-                            (tabP[iPx] - tabP[iPx + 2]) * (tabP[iPx + 1] - tabP[iPx + 2]))
+                            (tabP[iPx-1] - tabP[iPx+1]) * (tabP[iPx] - tabP[iPx1]))
+                    gP2 = (Px - tabP[iPx1]) * (-(tabP[iPx0] - tabP[iPx2]) * (Px - tabP[iPx]) * (Px - tabP[iPx]) -
+                           (tabP[iPx] - tabP[iPx1]) * (tabP[iPx] - tabP[iPx2]) * (Px - tabP[iPx0])) / (
+                           (tabP[iPx0] - tabP[iPx]) * (tabP[iPx] - tabP[iPx1]) * (tabP[iPx] - tabP[iPx1]) *
+                           (tabP[iPx] - tabP[iPx2]))
+                    gP3 = (Px - tabP[iPx]) * ((tabP[iPx0] - tabP[iPx2]) * (Px - tabP[iPx1]) * (Px - tabP[iPx1]) -
+                            (tabP[iPx0] - tabP[iPx1]) * (tabP[iPx] - tabP[iPx1]) * (Px - tabP[iPx2])) / (
+                            (tabP[iPx0] - tabP[iPx1]) * (tabP[iPx] - tabP[iPx1]) * (tabP[iPx] - tabP[iPx1]) *
+                            (tabP[iPx1] - tabP[iPx2]))
+                    gP4 = -(Px - tabP[iPx]) * (Px - tabP[iPx]) * (Px - tabP[iPx1]) / ((tabP[iPx] - tabP[iPx1]) *
+                            (tabP[iPx] - tabP[iPx2]) * (tabP[iPx1] - tabP[iPx2]))
 
-                    fP1 = tabKap[iTx - 1, iPx - 1, iband] * gT1 + tabKap[iTx, iPx - 1, iband] * gT2 + \
-                          tabKap[iTx + 1, iPx - 1, iband] * gT3 + tabKap[iTx + 2, iPx - 1, iband] * gT4
-                    fP2 = tabKap[iTx - 1, iPx, iband] * gT1 + tabKap[iTx, iPx, iband] * gT2 + \
-                          tabKap[iTx + 1, iPx, iband] * gT3 + tabKap[iTx + 2, iPx, iband] * gT4
-                    fP3 = tabKap[iTx - 1, iPx + 1, iband] * gT1 + tabKap[iTx, iPx + 1, iband] * gT2 + \
-                          tabKap[iTx + 1, iPx + 1, iband] * gT3 + tabKap[iTx + 2, iPx + 1, iband] * gT4
-                    fP4 = tabKap[iTx - 1, iPx + 2, iband] * gT1 + tabKap[iTx, iPx + 2, iband] * gT2 + \
-                          tabKap[iTx + 1, iPx + 2, iband] * gT3 + tabKap[iTx + 2, iPx + 2, iband] * gT4
+                    fP1 = tabKap[iTx0, iPx0, iband] * gT1 + tabKap[iTx, iPx0, iband] * gT2 + \
+                          tabKap[iTx1, iPx0, iband] * gT3 + tabKap[iTx2, iPx0, iband] * gT4
+                    fP2 = tabKap[iTx0, iPx, iband] * gT1 + tabKap[iTx, iPx, iband] * gT2 + \
+                          tabKap[iTx1, iPx, iband] * gT3 + tabKap[iTx2, iPx, iband] * gT4
+                    fP3 = tabKap[iTx0, iPx1, iband] * gT1 + tabKap[iTx, iPx1, iband] * gT2 + \
+                          tabKap[iTx1, iPx1, iband] * gT3 + tabKap[iTx2, iPx1, iband] * gT4
+                    fP4 = tabKap[iTx0, iPx2, iband] * gT1 + tabKap[iTx, iPx2, iband] * gT2 + \
+                          tabKap[iTx1, iPx2, iband] * gT3 + tabKap[iTx2, iPx2, iband] * gT4
 
                     xkaros[i, j, k, l] = fP1 * gP1 + fP2 * gP2 + fP3 * gP3 + fP4 * gP4
     return xkaros

@@ -100,12 +100,14 @@ class PlotWidget(FigureCanvas):
                 if isinstance(tauUnity[1], np.ndarray):
                     if tauUnity[1].ndim == 1:
                         self.ax.plot(tauUnity[0], tauUnity[1])
-        elif data.dim == 1:
+        elif data.ndim == 1:
             if window is None:
                 self.plot = self.ax.plot(data)
+                self.ax.set_aspect('auto')
             elif np.shape(window) == (2,):
                 x = np.linspace(window[0], window[1], len(data), endpoint=True)
                 self.plot = self.ax.plot(x, data)
+                self.ax.set_aspect('auto')
             else:
                 raise valer
         else:

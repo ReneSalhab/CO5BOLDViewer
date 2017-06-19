@@ -143,9 +143,6 @@ class File(_EntryMapping):
         self._re_desc = re.compile(r"^(\w+) (\w+) ?(.*)$")
         self._re_dims = re.compile('\d+:\d+')
 
-        mag = self._fd.read(4+12)[4:]
-        if mag != b'fileform uio':
-            raise IOError('unsupported file format')
         self._fd.seek(0)
         ff, uio, self.header = self._parse_descriptor()
         if ff != 'fileform' or uio != 'uio':
@@ -320,4 +317,3 @@ if __name__ == '__main__':
     fname = os.path.join('/dat/pluto_2/salhab/cobold/scratchy/job_d3t40g45v50rsn01_526x526x176', 'rhd001.mean')
 
     f = File(fname)
-    

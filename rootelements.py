@@ -27,18 +27,11 @@ import windows as wind
 from par import ParFile
 from eosinter import EosInter
 
-
 # noinspection PyUnresolvedReferences
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
-        self.version = "0.8.6.5"
+        self.version = "0.8.7"
         super(MainWindow, self).__init__()
-
-        self.initUI()
-        self.minNorm = np.finfo(np.float32).min
-        self.maxNorm = np.finfo(np.float32).max
-
-    def initUI(self):
 
         self.centralWidget = QtWidgets.QWidget(self)
 
@@ -51,6 +44,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setMenu()
         self.setGridLayout()
         self.statusBar().showMessage("ready")
+
         self.show()
 
     def initializeParams(self):
@@ -101,11 +95,16 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dim = 0
         self.sameNorm = False
 
+        self.minNorm = np.finfo(np.float32).min
+        self.maxNorm = np.finfo(np.float32).max
+
+        # --- Data-array for plotting ---
+
         self.data = np.outer(self.xc1, self.xc2)
 
-        # --- math functions for post-processing data ---
+        # --- functions for post-processing data ---
 
-        self.postmath = {'----': "data", '| |': "abs(data)", 'log': "log(data)", 'log(| |)': "log(abs(data))",
+        self.postfunc = {'----': "data", '| |': "abs(data)", 'log': "log(data)", 'log(| |)': "log(abs(data))",
                          'log10': "log10(data)", 'log10(| |)': "log10(abs(data))", 'exp': "exp(data)"}
 
         # --- Available Colormaps (handle invert versions with checkbox) ---
@@ -122,6 +121,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.par = False
         self.eos = False
         self.opa = False
+        self.modelfile = None
 
         self.eosname = False
         self.opaname = False
@@ -224,7 +224,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # --- "Window" drop-down menu elements ---
 
-        self.windowMenu = QtWidgets.QMenu("&WIndow", self)
+        self.windowMenu = QtWidgets.QMenu("&Window", self)
         self.windowMenu.addAction(stratificationAction)
         self.windowMenu.setDisabled(True)
 
@@ -254,16 +254,24 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.stdDirMod is None:
             self.stdDirMod = os.path.curdir
 
+        # get list of model-file-names
         self.fname, fil = QtWidgets.QFileDialog.getOpenFileNames(self, "Open Model File", self.stdDirMod,
                                                                  "Model files (*.full *.end *.sta);;Mean files(*.mean)")
         Nfiles = len(self.fname)
         if Nfiles == 0:
             return
 
-        self.stdDirMod = os.sep.join(self.fname[0].split(os.sep)[:-1])
+        # set standard directory for Model Load-Dialog to current directory
+        self.stdDirMod = "/".join(self.fname[0].split("/")[:-1])
 
         self.statusBar().showMessage("Read Modelfile...")
         QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
+
+        # if modelfile is already existent, close all files
+        if isinstance(self.modelfile, list):
+            if len(self.modelfile) > 0:
+                for mod in self.modelfile:
+                    mod.close()
 
         self.modelfile = []
 
@@ -276,7 +284,7 @@ class MainWindow(QtWidgets.QMainWindow):
             if pd.wasCanceled():
                 return
 
-        pd.setValue(len(self.fname))
+        pd.setValue(Nfiles)
 
         if fil == "Mean files(*.mean)":
             self.meanfile = True
@@ -358,7 +366,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                                       ("Magnetic field B^2, signed", "bsq"),
                                                       ("Vert. magnetic flux Bz*Az", "bfl"),
                                                       ("Vert. magnetic gradient Bz/dz", "bgrad"),
-                                                      ("Magnetic energy", "bener"), ("Magnetic potential Phi", "phi"),
+                                                      ("Magnetic energy", "bener"),# ("Magnetic potential Phi", "phi"),
                                                       ("Alfven speed", "ca"), ("Electric current density jx", "jx"),
                                                       ("Electric current density jy", "jy"),
                                                       ("Electric current density jz", "jz"),
@@ -437,7 +445,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if len(parname) == 0:
             return      # return if QFileDialog canceled
 
-        self.stdDirPar = os.sep.join(parname.split(os.sep)[:-1])
+        self.stdDirPar = "/".join(parname.split("/")[:-1])
 
         self.statusBar().showMessage("Read parameter file...")
         QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
@@ -473,10 +481,11 @@ class MainWindow(QtWidgets.QMainWindow):
             else:
                 return
 
+        # return if QFileDialog canceled
         if len(self.eosname) == 0:
-            return      # return if QFileDialog canceled
+            return
 
-        self.stdDirEos = os.sep.join(self.eosname.split(os.sep)[:-1])
+        self.stdDirEos = "/".join(self.eosname.split("/")[:-1])
 
         if self.eosname:
             self.statusBar().showMessage("Read EOS file...")
@@ -526,7 +535,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if len(self.opaname) == 0:
             return      # return if QFileDialog canceled
 
-        self.stdDirOpa = os.sep.join(self.opaname.split(os.sep)[:-1])
+        self.stdDirOpa = "/".join(self.opaname.split("/")[:-1])
 
         if self.opaname:
             self.statusBar().showMessage("Read opacity file...")
@@ -843,13 +852,13 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # --- ComboBox with math-selection ---
 
-        self.mathCombo = QtWidgets.QComboBox(self.centralWidget)
-        self.mathCombo.clear()
-        self.mathCombo.setDisabled(True)
-        self.mathCombo.activated.connect(self.mathComboChange)
-        self.mathCombo.addItems(self.postmath.keys())
-        self.mathCombo.setCurrentText("----")
-        self.mathCombo.setObjectName("math-Combo")
+        self.funcCombo = QtWidgets.QComboBox(self.centralWidget)
+        self.funcCombo.clear()
+        self.funcCombo.setDisabled(True)
+        self.funcCombo.activated.connect(self.funcComboChange)
+        self.funcCombo.addItems(self.postfunc.keys())
+        self.funcCombo.setCurrentText("----")
+        self.funcCombo.setObjectName("math-Combo")
 
         # --- Radiobuttons for 2D-3D-selection ---
 
@@ -878,7 +887,7 @@ class MainWindow(QtWidgets.QMainWindow):
         dataParamsLayout.addWidget(quantityLabel, 0, 0)
         dataParamsLayout.addWidget(self.quantityCombo, 0, 1, 1, 3)
         dataParamsLayout.addWidget(self.normCheck, 0, 4, 1, 2)
-        dataParamsLayout.addWidget(self.mathCombo, 0, 6, 1, 1)
+        dataParamsLayout.addWidget(self.funcCombo, 0, 6, 1, 1)
 
         dataParamsLayout.addWidget(colorbarLabel, 1, 0)
         dataParamsLayout.addWidget(self.colorcanvas, 1, 1, 1, 4)
@@ -1039,7 +1048,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def initialLoad(self):
         start = time.time()
-        # --- Initiate post-computed arrays ---
+        # --- Initiate axes and cell-sizes ---
 
         self.xc1 = self.modelfile[0].dataset[0].box[0]["xc1"].data.squeeze()*1.e-5
         self.xc2 = self.modelfile[0].dataset[0].box[0]["xc2"].data.squeeze()*1.e-5
@@ -1053,7 +1062,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dy = np.diff(self.xb2).mean()
         self.dz = np.diff(self.xb3).mean()
 
+        # --- check if grid is equi-distant ---
+
         self.constGrid = np.diff(self.xb3).std() < 0.01
+
+        # --- initiatte time-array ---
 
         if len(self.modelfile):
             self.time = []
@@ -1061,7 +1074,10 @@ class MainWindow(QtWidgets.QMainWindow):
                 for j in range(len(self.modelfile[i].dataset)):
                     self.time.append([self.modelfile[i].dataset[j]["modeltime"].data, i, j])
         self.time = np.array(self.time)
-        self.timlen = len(self.time[:,0])
+
+        # --- determine axis-boundaries ---
+
+        self.timlen = len(self.time[:, 0])
 
         self.x1min = self.xc1.min()
         self.x1max = self.xc1.max()
@@ -1117,7 +1133,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.vpXIncEdit.setDisabled(False)
             self.vpYIncEdit.setDisabled(False)
 
-        self.mathCombo.setDisabled(False)
+        self.funcCombo.setDisabled(False)
         self.crossCheck.setDisabled(False)
 
         # --------------------------------------
@@ -1145,8 +1161,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.colorbar.draw_all()
         self.colorcanvas.draw()
 
-        self.dim = self.modelfile[self.modelind].dataset[self.dsind].box[self.boxind][self.typeind].data.ndim
+        shape = np.array(self.modelfile[self.modelind].dataset[self.dsind].box[self.boxind][self.typeind].data.shape)
+        self.dim = len(shape[shape > 1])
 
+        # in dependency of the data´s dimension activate, or de-activate the different GUI-elements
         if self.dim == 3:
             self.planeCombo.setDisabled(False)
             self.cmCombo.setDisabled(False)
@@ -1189,8 +1207,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
             self.tauUnityCheck.setDisabled(False)
 
-            self.direction = self.modelfile[self.modelind].dataset[self.dsind].box[self.boxind][self.typeind].shape.\
-                index(1)
+            self.direction = np.where(shape == 1)[0]
             if self.direction == 0:
                 self.x3ind = 0
             elif self.direction == 1:
@@ -1218,8 +1235,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
             self.tauUnityCheck.setDisabled(True)
 
-            self.direction = bisect.bisect(self.modelfile[self.modelind].dataset[self.dsind].box[self.boxind][self.
-                                           typeind].shape, 2)
+            self.direction = bisect.bisect(shape, 2)
             if self.direction == 0:
                 self.x1ind = 0
                 self.x2ind = 0
@@ -1446,9 +1462,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 data = ip.interp1d(self.xb3, bb3, axis=0, copy=False, assume_sorted=True)(self.xc3)*A*math.sqrt(const)
                 self.unit = "G*km^2"
             elif self.quantityCombo.currentText() == "Vert. magnetic gradient Bz/dz":
-                x3 = self.modelfile[0].dataset[0].box[0]["xb3"].data.squeeze()*1.e-5
                 bb3 = self.modelfile[mod].dataset[dat].box[0]["bb3"].data
-                dz = np.diff(x3)
+                dz = np.diff(self.xb3)
 
                 data = math.sqrt(const) * np.diff(bb3, axis=0) / dz[:, np.newaxis, np.newaxis]
                 self.unit = "G/km"
@@ -1693,17 +1708,16 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 self.unit = ""
             else:
-                data = self.modelfile[mod].dataset[dat].box[self.boxind][self.typeind].data
-                self.unit = self.modelfile[mod].dataset[dat].box[self.boxind][self.typeind].\
-                    params["u"]
+                data = self.modelfile[mod].dataset[dat].box[self.boxind][self.typeind].data.squeeze()
+                self.unit = self.modelfile[mod].dataset[dat].box[self.boxind][self.typeind].params["u"]
         else:
-            data = self.modelfile[mod].dataset[dat].box[self.boxind][self.typeind].data
-            self.unit = self.modelfile[mod].dataset[dat].box[self.boxind][self.typeind].\
-                params["u"]
+            data = self.modelfile[mod].dataset[dat].box[self.boxind][self.typeind].data.squeeze()
+            self.unit = self.modelfile[mod].dataset[dat].box[self.boxind][self.typeind].params["u"]
+        self.dim = data.ndim
         QtWidgets.QApplication.restoreOverrideCursor()
         text = "time needed for evaluation: {0:5.3g} s".format(time.time()-start)
         self.statusBar().showMessage(text)
-        return ne.evaluate(self.postmath[self.mathCombo.currentText()], local_dict={'data': data})
+        return ne.evaluate(self.postfunc[self.funcCombo.currentText()], local_dict={'data': data})
 
 
     def planeCheck(self):
@@ -1763,7 +1777,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.sameNorm = False
 
-    def mathComboChange(self):
+    def funcComboChange(self):
         self.data = self.setPlotData(self.modelind, self.dsind)
         self.planeCheck()
 
@@ -2029,7 +2043,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.data = self.setPlotData(self.modelind, self.dsind)
 
-        self.dim = 3 - self.data.shape.count(1)
+        # self.dim = 3 - self.data.shape.count(1)
 
         if self.dim == 3:
             self.planeCombo.setDisabled(False)
@@ -2134,7 +2148,7 @@ class MainWindow(QtWidgets.QMainWindow):
             elif self.twoDRadio.isChecked():
                 if self.planeCombo.currentText() == "xy":
                     window = np.array([[self.x1min, self.x1max], [self.x2min, self.x2max]])
-                    self.plotBox.plotFig(self.data[self.x3ind], window, vmin=self.minNorm, vmax=self.maxNorm,
+                    self.plotBox.plotFig(self.data[self.x3ind], window=window, vmin=self.minNorm, vmax=self.maxNorm,
                                          cmap=self.cmCombo.currentCmap, pos=pos)
                     if self.vpCheck.isChecked():
                         self.plotBox.vectorPlot(self.xc1, self.xc2, self.u[self.x3ind], self.v[self.x3ind],
@@ -2145,12 +2159,12 @@ class MainWindow(QtWidgets.QMainWindow):
                     window = np.array([[self.x1min, self.x1max], [self.x3min, self.x3max]])
 
                     if self.tauUnityCheck.isChecked():
-                        self.plotBox.plotFig(self.data[:, self.x2ind, :], window, vmin=self.minNorm, vmax=self.maxNorm,
-                                             cmap=self.cmCombo.currentCmap, pos=pos,
+                        self.plotBox.plotFig(self.data[:, self.x2ind, :], window=window, vmin=self.minNorm,
+                                             vmax=self.maxNorm, cmap=self.cmCombo.currentCmap, pos=pos,
                                              tauUnity=(self.xc1, self.tauheight[self.x2ind]))
                     else:
-                        self.plotBox.plotFig(self.data[:, self.x2ind, :], window, vmin=self.minNorm, vmax=self.maxNorm,
-                                             cmap=self.cmCombo.currentCmap, pos=pos)
+                        self.plotBox.plotFig(self.data[:, self.x2ind, :], window=window, vmin=self.minNorm,
+                                             vmax=self.maxNorm, cmap=self.cmCombo.currentCmap, pos=pos)
 
                     if self.vpCheck.isChecked():
                         self.plotBox.vectorPlot(self.xc1, self.xc3, self.u[:, self.x2ind], self.w[:, self.x2ind],
@@ -2160,12 +2174,12 @@ class MainWindow(QtWidgets.QMainWindow):
                 elif self.planeCombo.currentText() == "yz":
                     window = np.array([[self.x2min, self.x2max], [self.x3min, self.x3max]])
                     if self.tauUnityCheck.isChecked():
-                        self.plotBox.plotFig(self.data[:, :, self.x1ind], window, vmin=self.minNorm, vmax=self.maxNorm,
-                                             cmap=self.cmCombo.currentCmap, pos=pos,
+                        self.plotBox.plotFig(self.data[:, :, self.x1ind], window=window, vmin=self.minNorm,
+                                             vmax=self.maxNorm, cmap=self.cmCombo.currentCmap, pos=pos,
                                              tauUnity=(self.xc2, self.tauheight[:, self.x1ind]))
                     else:
-                        self.plotBox.plotFig(self.data[:, :, self.x1ind], window, vmin=self.minNorm, vmax=self.maxNorm,
-                                             cmap=self.cmCombo.currentCmap, pos=pos)
+                        self.plotBox.plotFig(self.data[:, :, self.x1ind], window=window, vmin=self.minNorm,
+                                             vmax=self.maxNorm, cmap=self.cmCombo.currentCmap, pos=pos)
                     if self.vpCheck.isChecked():
                         self.plotBox.vectorPlot(self.xc2, self.xc3, self.v[:, :, self.x1ind], self.w[:, :, self.x1ind],
                                                 xinc=int(self.vpXIncEdit.text()), yinc=int(self.vpYIncEdit.text()),
@@ -2180,33 +2194,28 @@ class MainWindow(QtWidgets.QMainWindow):
         elif self.dim == 2:
             if self.direction == 0:
                 window = np.array([[self.x1min, self.x1max], [self.x2min, self.x2max]])
-                self.plotBox.plotFig(self.data[0], window, vmin=self.minNorm, vmax=self.maxNorm,
-                                     cmap=self.cmCombo.currentCmap, pos=pos)
             elif self.direction == 1:
                 window = np.array([[self.x1min, self.x1max], [self.x3min, self.x3max]])
-                self.plotBox.plotFig(self.data[:, 0], window, vmin=self.minNorm, vmax=self.maxNorm,
-                                     cmap=self.cmCombo.currentCmap, pos=pos)
             elif self.direction == 2:
                 window = np.array([[self.x2min, self.x2max], [self.x3min, self.x3max]])
-                self.plotBox.plotFig(self.data[:, :, 0], window, vmin=self.minNorm, vmax=self.maxNorm,
-                                     cmap=self.cmCombo.currentCmap, pos=pos)
             else:
                 self.msgBox.setText("Direction could not be identified.")
                 self.msgBox.exec_()
 
+            self.plotBox.plotFig(self.data, window=window, vmin=self.minNorm, vmax=self.maxNorm,
+                                 cmap=self.cmCombo.currentCmap, pos=pos)
+
         elif self.dim == 1:
             if self.direction == 0:
                 window = np.array([self.x3min, self.x3max])
-                self.plotBox.plotFig(self.data[:, 0, 0], window)
             elif self.direction == 1:
                 window = np.array([self.x2min, self.x2max])
-                self.plotBox.plotFig(self.data[0, :, 0], window)
             elif self.direction == 2:
                 window = np.array([self.x1min, self.x1max])
-                self.plotBox.plotFig(self.data[0, 0], window)
             else:
                 self.msgBox.setText("Direction could not be identified.")
                 self.msgBox.exec_()
+            self.plotBox.plotFig(self.data, window=window)
         else:
             self.msgBox.setText("Dimension not legal.")
             self.msgBox.exec_()
