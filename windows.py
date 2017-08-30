@@ -26,7 +26,7 @@ import subclasses as sc
 
 class BasicWindow(QtWidgets.QMainWindow):
     def __init__(self):
-        self.version = "0.95"
+        self.version = "0.9.5"
         super(BasicWindow, self).__init__()
 
         self.centralWidget = QtWidgets.QWidget(self)

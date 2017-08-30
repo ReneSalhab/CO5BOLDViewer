@@ -1,6 +1,6 @@
-# CO5BOLDViewer 0.8.7
+# CO5BOLDViewer 0.9.5
 
-A QT-based viewer of .uio-data used by CO5BOLD. Written in Python 3.5.
+A Qt-based viewer for .uio-data used by CO5BOLD and binary and profile-files used by NICOLE (GitHub: hsocasnavarro/NICOLE). Written in Python 3.x.
 
 ## Requirements
     
