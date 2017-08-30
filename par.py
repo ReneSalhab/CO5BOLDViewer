@@ -73,7 +73,7 @@ class ParFile(_EntryMapping):
         self.linbr = ".+\&"
 
         with open(filename, 'r') as self.f:
-            self.read()
+            self._read()
 
     def __repr__(self):
         slist = ["ParFile"]
@@ -102,7 +102,13 @@ class ParFile(_EntryMapping):
         for p in param:
             p = p.strip().split('=')
             p[0] = p[0].strip()
-            params[p[0]] = re.findall("[^-']+", p[1])
+            if len(p) == 2:
+                params[p[0]] = re.findall("[^-']+", p[1])
+            elif len(p) > 2:
+                params[p[0]] = re.findall("[^-']+", " ".join(p[1:]))
+            else:
+                print("Found invalid entry in line {0}. Maybe single quotation mark is missing.".format(self.lineno))
+                continue
             if not params[p[0]]:
                 try:
                     del params[p[0]]
@@ -125,7 +131,7 @@ class ParFile(_EntryMapping):
     def _get_entry(self):
         while re.match(self.linbr, self.line) is not None:
             # better method for combining description lines. Errors like several "&" are considered
-            self.line = "".join(re.match(self.linbr, self.line).group().split("&")) + self.f.readline()
+            self.line = "".join(re.match(self.linbr, self.line).group().split("&")) + self._readline()
 
         etype, name, param = re.findall("(\w+) (\w+) ?(.*)$", self.line)[0]
         dtype = self._conv_type(etype)
@@ -134,7 +140,7 @@ class ParFile(_EntryMapping):
         if 'b' in params:
             if 'd' in params:
                 shape = params['d']
-                self.line = self.f.readline()
+                self.line = self._readline()
                 if len(shape) == 1:
                     data = dtype(self.line.strip())
                 else:
@@ -142,28 +148,30 @@ class ParFile(_EntryMapping):
                     while True:
                         for i in self.line.split():
                             val.append(i)
-                        self.line = self.f.readline()
+                        self.line = self._readline()
                         if any(self.line.startswith(ty) for ty in self.types):
                             break
 
                     data = np.array(val, dtype=dtype).reshape(shape)
             else:
                 shape = None
-                self.line = self.f.readline()
+                self.line = self._readline()
                 data = dtype(self.line.strip())
-            self.line = self.f.readline()
+            self.line = self._readline()
             self.line = self.line.strip()
         else:
-            self.line = self.f.readline()
+            self.line = self._readline()
             self.line = self.line.strip()
             return
 
         return Entry(type=etype, name=name, params=params, dtype=dtype, shape=shape, data=data)
 
-    def read(self):
+    def _read(self):
         count = 0
         entries = []
+        self.lineno = 0
         for self.line in self.f:
+            self.lineno += 1
             self.line = self.line.strip()
             if "fileform" in self.line:
                 # self.header = {}
@@ -172,15 +180,15 @@ class ParFile(_EntryMapping):
                     if any(self.line.startswith(ty) for ty in self.types):
                         self.header.append(self._get_entry())
                     else:
-                        self.line = self.f.readline()
+                        self.line = self._readline()
                         self.line = self.line.strip()
             elif "label" in self.line:
                 while True:
                     if re.match(self.linbr, self.line) is not None:
-                        self.line = re.match(self.linbr, self.line).group()[:-1] + self.f.readline()
+                        self.line = re.match(self.linbr, self.line).group()[:-1] + self._readline()
                     if re.match(self.linbr, self.line) is None:
                         break
-                self.line = self.f.readline()
+                self.line = self._readline()
                 self.line = self.line.strip()
             elif any(self.line.startswith(ty) for ty in self.types[2:]):
                 while True:
@@ -191,11 +199,15 @@ class ParFile(_EntryMapping):
                     if any(self.line.startswith(ty) for ty in self.types):
                         entries.append(self._get_entry())
                     else:
-                        self.line = self.f.readline()
+                        self.line = self._readline()
                         self.line = self.line.strip()
                     if "label" in self.line or count == 4:
                         break
         super(ParFile, self).__init__(entries)
+
+    def _readline(self):
+        self.lineno += 1
+        return self.f.readline()
 
 if __name__ == "__main__":
     parname = r"N:\Python\Data\d3gt57g44v50rsn01_400x400x188.par"

@@ -1,5 +1,5 @@
 # Standard locations for models, eos-files and opa-files. Will be opened, if corresponding loading dialog-box is called.
 
-stdDirMod = Y:\salhab\cobold\scratchy
-stdDirEOS = N:\Python\Data\eos
-stdDirOpa = N:\Python\Data\opa
+stdDirMod = Z:\cobold\scratchy
+stdDirEOS = C:\Users\salhab\Documents\Pyhon\Data\eos
+stdDirOpa = C:\Users\salhab\Documents\Pyhon\Data\opa

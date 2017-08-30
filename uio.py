@@ -151,7 +151,9 @@ class File(_EntryMapping):
         entries = []
         if fend == ".eos":
             self.block = []
+            self.dataset = None
         else:
+            self.block = None
             self.dataset = []
 
         for x in self._read_file_entries():
