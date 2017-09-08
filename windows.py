@@ -1041,6 +1041,7 @@ class BasicWindow(QtWidgets.QMainWindow):
             self.invertCM(False)
 
         self.planeCheck()
+        self.plot = True
         print("Time needed for initial load:", time.time()-start)
 
     # -------------
@@ -1072,9 +1073,13 @@ class BasicWindow(QtWidgets.QMainWindow):
     def tauRangeChange(self):
         sender = self.sender()
         try:
+            self.numTau = int(self.numTauEdit.text())
             self.minTau = float(self.minTauEdit.text())
             self.maxTau = float(self.maxTauEdit.text())
-            self.numTau = int(self.numTauEdit.text())
+            if self.minTau >= self.maxTau:
+                print("Min. tau has to be smaller than max. tau.")
+                pass
+
             if self.numTau < 1:
                 self.numTau = 1
                 self.numTauEdit.setText(str(self.numTau))
@@ -1085,10 +1090,6 @@ class BasicWindow(QtWidgets.QMainWindow):
                 self.x3Slider.setMaximum(self.numTau - 1)
         except ValueError:
             print("{0} of {1} is an invalid input.".format(sender.text(), sender.objectName()))
-            pass
-
-        if self.minTau >= self.maxTau:
-            print("Min. tau has to be smaller than max. tau.")
             pass
 
         if self.plot:
@@ -1146,12 +1147,10 @@ class BasicWindow(QtWidgets.QMainWindow):
                     max.append(data.max())
             self.globBound = [min, max]
 
-    @pyqtSlot()
     def normCheckChange(self, state):
         if state == QtCore.Qt.Checked:
             self.getTotalMinMax()
 
-    @pyqtSlot()
     def invertCM(self, state):
         if state == QtCore.Qt.Checked:
             self.cmCombo.inv = "_r"

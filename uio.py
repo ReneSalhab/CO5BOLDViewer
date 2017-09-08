@@ -211,7 +211,7 @@ class File(_EntryMapping):
                 entries.append(ds)
             elif entry.type == 'label' and entry.name == 'block':
                 ds_entries = []
-                for ei in self._read_box_entries():
+                for ei in self._read_block_entries():
                     if isinstance(ei, Entry):
                         ds_entries.append(ei)
                 ds = Block(pos=self._fd.tell(), params=entry.params, entries=ds_entries)
@@ -222,32 +222,45 @@ class File(_EntryMapping):
         return entries
 
     def _read_dataset_entries(self):
-        entries = []
+#        entries = []
         while True:
             entry = self._read_entry()
             if entry.type == 'label':
                 if entry.name == 'enddataset':
                     break
                 elif entry.name == 'box':
-                    box = Box(pos=self._fd.tell(), params=entry.params, entries=self._read_box_entries())
-                    entries.append(box)
+                    yield Box(pos=self._fd.tell(), params=entry.params, entries=self._read_box_entries())
+#                    box = Box(pos=self._fd.tell(), params=entry.params, entries=self._read_box_entries())
+#                    entries.append(box)
                 elif entry.name == 'block':
-                    box = Block(pos=self._fd.tell(), params=entry.params, entries=self._read_box_entries())
-                    entries.append(box)
+                    yield Block(pos=self._fd.tell(), params=entry.params, entries=self._read_block_entries())
+#                    box = Block(pos=self._fd.tell(), params=entry.params, entries=self._read_block_entries())
+#                    entries.append(box)
             else:
-                entries.append(entry)
+                yield entry
+#                entries.append(entry)
                 self._skip_block()
-        return entries
+#        return entries
 
     def _read_box_entries(self):
         box = []
         while True:
             entry = self._read_entry()
-            if entry.type == 'label' and (entry.name == 'endbox' or entry.name == 'endblock'):
+            if entry.type == 'label' and entry.name == 'endbox':
                 break
             box.append(entry)
             self._skip_block()
         return box
+
+    def _read_block_entries(self):
+        block = []
+        while True:
+            entry = self._read_entry()
+            if entry.type == 'label' and entry.name == 'endblock':
+                break
+            block.append(entry)
+            self._skip_block()
+        return block
 
     def _read_entry(self):
         etype, name, params = self._parse_descriptor()
@@ -305,17 +318,14 @@ class File(_EntryMapping):
             return None
         etype, name, pstr = m.groups()
         params = {}
-        pitems = self._re_params.findall(pstr)
-        for it in pitems:
+        for it in self._re_params.findall(pstr):
             key, value = it.split('=', 1)
-            if value.startswith("'") and value.endswith("'"):
-                value = value[1:-1]
-            params[key] = value
+            params[key] = value.strip("'")
         return etype, name, params
 
 if __name__ == '__main__':
     from numpy import *
 
-    fname = os.path.join('/dat/pluto_2/salhab/cobold/scratchy/job_d3t40g45v50rsn01_526x526x176', 'rhd001.mean')
+    fname = os.path.join("Z:\cobold\scratchy\job_d3gt57g44v100rsn01_400x400x188", "rhd010.mean")
 
     f = File(fname)
