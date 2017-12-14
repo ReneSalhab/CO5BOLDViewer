@@ -13,6 +13,9 @@ import matplotlib.colors as cl
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavTool
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
+# from vtk.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
+# import vtk
+
 from astropy.io import fits
 import h5py
         
@@ -49,9 +52,9 @@ class PlotWidget(FigureCanvas):
         -----------
             Plots data.
         :param data: ndarray, 2D, or 1D. Data that is plotted
-        :param limits: ndarray, shape is (2, 2). Extent of the plot.
-        :param vmin: float, minimum value for normalizing the plot
-        :param vmax: float, maximum value for normalizing the plot
+        :param limits: ndarray, shape is (2, 2). Extent of the plotRoutine.
+        :param vmin: float, minimum saturation-value
+        :param vmax: float, maximum saturation-value
         :param cmap: 
         
         :param pos: 
@@ -137,108 +140,34 @@ class PlotWidget(FigureCanvas):
         self.fig.tight_layout()
         self.draw()
 
-    def updatePlot(self,data,vmin,vmax):
-        self.image.set_clim(vmin, vmax)
+    def updatePlot(self, data, vmin, vmax):
         self.image.set_array(data)
+        self.image.set_clim(vmin, vmax)
         self.fig.tight_layout()
         self.draw()
 
 
-class PlotGridWidget(FigureCanvas):
-    def __init__(self, parent=None):
-
-        self.fig, self.ax = plt.subplots(2, 2, True, True, figsize=(8, 6), dpi=100)
-
-        FigureCanvas.__init__(self, self.fig)
-
-        self.setParent(parent)
-        self.toolbar = NavTool(self, self)
-
-        x1 = np.linspace(0, np.pi, 100)
-        x2 = np.linspace(0, np.pi, 100)
-        data = np.outer(x1, x2)
-
-        self.image = self.ax.imshow(data, interpolation="bilinear", origin="bottom")
-        self.fig.tight_layout()
-        self.draw()
-
-    def plotFig(self, data, limits=None, vmin=None, vmax=None, cmap="inferno", pos=None, tauUnity=None):
-        """
-        Description
-        -----------
-            Plots data.
-        :param data: ndarray, 2D, or 1D. Data that is plotted
-        :param limits: ndarray, shape is (2, 2). Extent of the plot.
-        :param vmin: float, minimum value for normalizing the plot of
-        :param vmax: float, minimum value for normalizing the plot of
-        :param cmap:
-
-        :param pos:
-        :return:
-        """
-        valer = ValueError("Either limits is not None, or an ndarray, or has wrong shape.")
-
-        if vmin is None:
-            vmin = data.min()
-        if vmax is None:
-            vmax = data.max()
-
-        if not isinstance(data, np.ndarray):
-            data = np.array(data)
-        self.ax.cla()
-
-        if data.ndim == 2:
-            if limits is None:
-                self.image = self.ax.imshow(data, interpolation="bilinear", origin="bottom", cmap=cmap,
-                                            norm=cl.Normalize(vmin=vmin, vmax=vmax))
-
-                if pos is not None:
-                    self.image.axes.axvline(x=pos[0], ymin=data.min(axis=1), ymax=data.max(axis=1), color="black")
-                    self.ax.axvline(x=pos[0], ymin=data.min(axis=1), ymax=data.max(axis=1), linestyles='dashed',
-                                    color="white")
-                    self.ax.hlines(y=pos[1], xmin=data.min(axis=0), xmax=data.max(axis=0), color="black")
-                    self.ax.hlines(y=pos[1], xmin=data.min(axis=0), xmax=data.max(axis=0), linestyles='dashed',
-                                   color="white")
-            elif np.shape(limits) == (2, 2):
-                self.image = self.ax.imshow(data, interpolation="bilinear", origin="bottom", cmap=cmap,
-                                            extent=(limits[0, 0], limits[0, 1], limits[1, 0], limits[1, 1]),
-                                            norm=cl.Normalize(vmin=vmin, vmax=vmax))
-                if pos is not None:
-                    self.ax.vlines(x=pos[0], ymin=limits[1, 0], ymax=limits[1, 1], color="black")
-                    self.ax.vlines(x=pos[0], ymin=limits[1, 0], ymax=limits[1, 1], color="white",
-                                   linestyles='dashed')
-                    self.ax.hlines(y=pos[1], xmin=limits[0, 0], xmax=limits[0, 1], color="black")
-                    self.ax.hlines(y=pos[1], xmin=limits[0, 0], xmax=limits[0, 1], color="white", linestyles='dashed')
-            else:
-                raise valer
-            if isinstance(tauUnity, tuple):
-                if isinstance(tauUnity[1], np.ndarray):
-                    if tauUnity[1].ndim == 1:
-                        self.ax.plot(tauUnity[0], tauUnity[1])
-        elif data.ndim == 1:
-            if limits is None:
-                self.plot = self.ax.plot(data)
-                self.ax.set_aspect('auto')
-            elif np.shape(limits) == (2,):
-                x = np.linspace(limits[0], limits[1], len(data), endpoint=True)
-                self.plot = self.ax.plot(x, data)
-                self.ax.set_aspect('auto')
-            else:
-                raise valer
-        else:
-            raise ValueError("Data has wrong dimension!")
-
-        self.fig.tight_layout()
-        self.draw()
+# class VTKPlotWidget(QVTKRenderWindowInteractor):
+#
+#     def __init__(self, parent):
+#         super(VTKPlotWidget, self).__init__()
+#         self.setParent(parent)
+#
+#         self.ren = vtk.vtkRenderer()
+#         self.GetRenderWindow().AddRenderer(self.ren)
+#         self.iren = self.GetRenderWindow().GetInteractor()
+#
+#         self.show()
+#         self.iren.Initialize()
 
 # ----------------------------------------------------------------------------
-# --------------------------------- Functions --------------------------------       
+# ------------------------------- Save Windows -------------------------------
 # ----------------------------------------------------------------------------
 
 def saveFits(filename, modelfile, datatype, data, time, pos, plane):
     
     if plane == "xy":
-        dataHDU = fits.PrimaryHDU(data[pos[2],:,:])
+        dataHDU = fits.PrimaryHDU(data[pos[2], :, :])
         dataHDU.header["z-pos"] = pos[2]
         
         x1 = modelfile.dataset[0].box[0]["xc1"].data.ravel()

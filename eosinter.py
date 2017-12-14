@@ -31,13 +31,11 @@ class EosInter:
                 :param fname: string, path and name of file with eos-related tables.
         """
 
-        eosfile = uio.File(fname)
+        self.eosf = uio.File(fname)
 
-        self.eosf = eosfile
-
-        self.cent = eosfile.block[0]['c1'].data.T
-        self.cpress = eosfile.block[0]['c2'].data.T
-        self.ctemp = eosfile.block[0]['c3'].data.T
+        self.cent = self.eosf.block[0]['c1'].data.T
+        self.cpress = self.eosf.block[0]['c2'].data.T
+        self.ctemp = self.eosf.block[0]['c3'].data.T
 
         if self.cent.dtype.byteorder != np.dtype('f').byteorder:
             self.cent = self.cent.newbyteorder()
@@ -47,9 +45,9 @@ class EosInter:
             self.ctemp = self.ctemp.newbyteorder()
             self.ctemp = self.ctemp.byteswap()
 
-        self.lnx11d = np.log(eosfile.block[0]['x1'].data + eosfile.block[0]['x1shift'].data).squeeze()
-        self.lnx21d = np.log(eosfile.block[0]['x2'].data + eosfile.block[0]['x2shift'].data).squeeze()
-        self.x2shift = eosfile.block[0]['x2shift'].data
+        self.lnx11d = np.log(self.eosf.block[0]['x1'].data + self.eosf.block[0]['x1shift'].data).squeeze()
+        self.lnx21d = np.log(self.eosf.block[0]['x2'].data + self.eosf.block[0]['x2shift'].data).squeeze()
+        self.x2shift = self.eosf.block[0]['x2shift'].data
 
         self.n1 = self.lnx11d.size - 1
         self.n2 = self.lnx21d.size - 1
@@ -61,16 +59,16 @@ class EosInter:
         nx1 = rho.size - 1
         nx2 = rho.size - 2
 
+        x2 = self.x2shift
+
         lnx1 = ne.evaluate("log(rho)")
-        lnx2 = ne.evaluate("log(ei+x2)", local_dict={'ei': ei}, global_dict={'x2': self.x2shift})
+        lnx2 = ne.evaluate("log(ei+x2)")
 
-        i1 = ne.evaluate("(lnx1 - x1off) * x1fac", local_dict={'lnx1': lnx1}, global_dict={'x1fac': self.x1fac,
-                                                               'x1off': self.lnx11d[0]}).astype(np.int32).clip(0, nx1)
-        i2 = ne.evaluate("(lnx2 - x2off) * x2fac", local_dict={'lnx2': lnx2}, global_dict={'x2fac': self.x2fac,
-                                                               'x2off': self.lnx21d[0]}).astype(np.int32).clip(0, nx2)
+        x1fac, x2fac = self.x1fac, self.x2fac
+        x1off, x2off = self.lnx11d[0], self.lnx21d[0]
 
-        i1 = np.minimum(i1, self.n1)
-        i2 = np.minimum(i2, self.n2)
+        i1 = ne.evaluate("(lnx1 - x1off) * x1fac").astype(np.int32).clip(0, min(nx1, self.n1))
+        i2 = ne.evaluate("(lnx2 - x2off) * x2fac").astype(np.int32).clip(0, min(nx2, self.n2))
 
         lnx11d = self.lnx11d[i1]
         lnx21d = self.lnx21d[i2]
@@ -143,9 +141,9 @@ class EosInter:
             raise ValueError("{0} as quantity is not supported.".format(quantity))
 
         if quantity in ["Entropy", "entropy", "E", "e"]:
-            return func(rho, ei, C, i1, i2, x1ta, x2ta)
+            return func(C, i1, i2, x1ta, x2ta)
         else:
-            return ne.evaluate("exp(val)", local_dict={'val': func(rho, ei, C, i1, i2, x1ta, x2ta)})
+            return ne.evaluate("exp(val)", local_dict={'val': func(C, i1, i2, x1ta, x2ta)})
 
     def PandT(self, rho, ei):
         """
@@ -166,11 +164,12 @@ class EosInter:
         x1ta, x2ta, i1, i2 = self._prep(rho, ei)
 
         if rho.ndim == 3:
-            return eosx.PandT3D(rho, ei, self.cpress, self.ctemp, i1, i2, x1ta, x2ta)
+            P, T = eosx.PandT3D(self.cpress, self.ctemp, i1, i2, x1ta, x2ta)
         elif rho.ndim == 4:
-            return eosx.PandT4D(rho, ei, self.cpress, self.ctemp, i1, i2, x1ta, x2ta)
+            P, T = eosx.PandT4D(self.cpress, self.ctemp, i1, i2, x1ta, x2ta)
         else:
             raise ValueError("Wrong dimension. Only 3D- and 4D-arrays supported.")
+        return ne.evaluate("exp(P)"), ne.evaluate("exp(T)")
 
     def Pall(self, rho, ei):
         """
@@ -217,8 +216,8 @@ class EosInter:
         x1ta, x2ta, i1, i2 = self._prep(rho, ei)
 
         if rho.ndim == 3:
-            return eosx.Tall3D(rho, ei, self.ctemp, i1, i2, x1ta, x2ta, self.x2shift)
+            return eosx.Tall3D(ei, self.ctemp, i1, i2, x1ta, x2ta, self.x2shift)
         elif rho.ndim == 4:
-            return eosx.Tall4D(rho, ei, self.ctemp, i1, i2, x1ta, x2ta, self.x2shift)
+            return eosx.Tall4D(ei, self.ctemp, i1, i2, x1ta, x2ta, self.x2shift)
         else:
             raise ValueError("Wrong dimension. Only 3D- and 4D-arrays supported.")

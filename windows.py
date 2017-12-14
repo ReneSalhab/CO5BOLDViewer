@@ -26,7 +26,7 @@ import subclasses as sc
 
 class BasicWindow(QtWidgets.QMainWindow):
     def __init__(self):
-        self.version = "0.9.5"
+        self.version = "0.9.7"
         super(BasicWindow, self).__init__()
 
         self.centralWidget = QtWidgets.QWidget(self)
@@ -35,7 +35,6 @@ class BasicWindow(QtWidgets.QMainWindow):
 
         self.initializeParams()
         self.setGridLayout()
-        self.statusBar().showMessage("ready")
 
         self.show()
 
@@ -62,7 +61,7 @@ class BasicWindow(QtWidgets.QMainWindow):
         self.numTau = None
         self.tauRange = None
 
-        # --- Axes of plot ---
+        # --- Axes of plotRoutine ---
 
         self.xc1 = None
         self.xc2 = None
@@ -77,11 +76,17 @@ class BasicWindow(QtWidgets.QMainWindow):
         self.boxind = -1
 
         self.direction = 0
-        self.dim = 0
-        self.sameNorm = False
+        self.DataDim = 0                # dimension of data
+        self.fixedDataRange = False     # data-range is fixed in plot
+        self.unit = ''                  # unit of plotted quantity
+        self.plotDim = 2                # demanded dimension of plot
+        self.oldData = False            # stores plotted data for checking if it changed after user-action.
+        self.oldLimits = False          # stores plot-borders for checking if it changed after user-action.
 
         self.minNorm = np.finfo(np.float32).min
         self.maxNorm = np.finfo(np.float32).max
+
+        self.senders = []
 
         # --- functions for post-processing data ---
 
@@ -108,7 +113,6 @@ class BasicWindow(QtWidgets.QMainWindow):
 
         # --- plot-control ---
 
-        self.plot = False
         self.tauheight = None  # 2-tuple. First element is domain of 1D-plot, second element is height of tau=1-surface
 
     def setGridLayout(self):
@@ -117,8 +121,8 @@ class BasicWindow(QtWidgets.QMainWindow):
 
         maingrid = QtWidgets.QHBoxLayout(self.centralWidget)
 
-        # --- Splitter for dynamic seperation of control elements section and plot-box
 
+        # --- Splitter for dynamic separation of control elements section and plot-box
         self.splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
         maingrid.addWidget(self.splitter)
 
@@ -146,7 +150,7 @@ class BasicWindow(QtWidgets.QMainWindow):
         self.timeSlider.setMinimum(0)
         self.timeSlider.setMaximum(100)
         self.timeSlider.setDisabled(True)
-        self.timeSlider.valueChanged.connect(self.SliderChange)
+        self.timeSlider.valueChanged.connect(self.sliderChange)
         self.timeSlider.setObjectName("time-Slider")
 
         self.prevTimeBtn = QtWidgets.QPushButton("Prev")
@@ -220,6 +224,8 @@ class BasicWindow(QtWidgets.QMainWindow):
         crossLabel = QtWidgets.QLabel("cross-hair:")
         self.crossCheck = QtWidgets.QCheckBox(self.centralWidget)
         self.crossCheck.setDisabled(True)
+        self.crossCheck.stateChanged.connect(self.crossChange)
+        self.crossCheck.setObjectName("cross-Check")
 
         # --- Sliders for spatial directions ---
 
@@ -227,21 +233,21 @@ class BasicWindow(QtWidgets.QMainWindow):
         self.x1Slider.setMinimum(0)
         self.x1Slider.setMaximum(100)
         self.x1Slider.setDisabled(True)
-        self.x1Slider.valueChanged.connect(self.SliderChange)
+        self.x1Slider.valueChanged.connect(self.sliderChange)
         self.x1Slider.setObjectName("x1-Slider")
 
         self.x2Slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self.centralWidget)
         self.x2Slider.setMinimum(0)
         self.x2Slider.setMaximum(100)
         self.x2Slider.setDisabled(True)
-        self.x2Slider.valueChanged.connect(self.SliderChange)
+        self.x2Slider.valueChanged.connect(self.sliderChange)
         self.x2Slider.setObjectName("x2-Slider")
 
         self.x3Slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self.centralWidget)
         self.x3Slider.setMinimum(0)
         self.x3Slider.setMaximum(100)
         self.x3Slider.setDisabled(True)
-        self.x3Slider.valueChanged.connect(self.SliderChange)
+        self.x3Slider.valueChanged.connect(self.sliderChange)
         self.x3Slider.setObjectName("x3-Slider")
 
         # --- Labels for sliders of spatial directions ---
@@ -523,11 +529,7 @@ class BasicWindow(QtWidgets.QMainWindow):
 
         colorbarLabel = QtWidgets.QLabel("Data range:")
 
-        # --- Normalization parameter widgets ---
-
-        self.normCheck = QtWidgets.QCheckBox("Normalize over time")
-        self.normCheck.stateChanged.connect(self.normCheckChange)
-        self.normCheck.setDisabled(True)
+        # --- Data-Range parameter widgets ---
 
         normMinTitle = QtWidgets.QLabel("Min:")
         self.normMinEdit = QtWidgets.QLineEdit("{dat:13.4g}".format(dat=0))
@@ -548,7 +550,7 @@ class BasicWindow(QtWidgets.QMainWindow):
         unitTitle = QtWidgets.QLabel("Unit:")
         self.unitLabel = QtWidgets.QLabel("")
 
-        # --- ComboBox with math-selection ---
+        # --- ComboBox with post process-selection ---
 
         self.funcCombo = QtWidgets.QComboBox(self.centralWidget)
         self.funcCombo.clear()
@@ -560,44 +562,45 @@ class BasicWindow(QtWidgets.QMainWindow):
 
         # --- Radiobuttons for 2D-3D-selection ---
 
-        oneDTitle = QtWidgets.QLabel("1D:")
-        self.oneDRadio = QtWidgets.QRadioButton(self.centralWidget)
-        self.oneDRadio.setChecked(True)
-        self.oneDRadio.setDisabled(True)
-        self.oneDRadio.setObjectName("1DRadio")
-        self.oneDRadio.toggled.connect(self.plotDimensionChange)
+        dimensionTitle = QtWidgets.QLabel("Dimension:")
+        self.dimensionCombo = QtWidgets.QComboBox(self.centralWidget)
+        self.dimensionCombo.setDisabled(True)
+        self.dimensionCombo.setObjectName("dimension-Combo")
+        self.dimensionCombo.activated.connect(self.plotDimensionChange)
+        self.dimensionCombo.addItems(["1D", "2D", "3D"])
+        self.dimensionCombo.setCurrentIndex(1)
+        self.dimensionCombo.model().item(2).setEnabled(False)
 
-        twoDTitle = QtWidgets.QLabel("2D:")
-        self.twoDRadio = QtWidgets.QRadioButton(self.centralWidget)
-        self.twoDRadio.setChecked(True)
-        self.twoDRadio.setDisabled(True)
-        self.twoDRadio.setObjectName("2DRadio")
-        self.twoDRadio.toggled.connect(self.plotDimensionChange)
+        self.oneDDataCombo = QtWidgets.QComboBox(self.centralWidget)
+        self.oneDDataCombo.clear()
+        self.oneDDataCombo.setDisabled(True)
+        self.oneDDataCombo.activated.connect(self.oneDComboChange)
+        self.oneDDataCombo.addItems(["average", "current"])
+        self.oneDDataCombo.setCurrentText("average")
+        self.oneDDataCombo.setObjectName("oned-data-combo")
+        self.oneDDataCombo.hide()
 
-        threeDTitle = QtWidgets.QLabel("3D:")
-        threeDTitle.setDisabled(True)
-        self.threeDRadio = QtWidgets.QRadioButton(self.centralWidget)
-        self.threeDRadio.setDisabled(True)
-        self.threeDRadio.setObjectName("3DRadio")
-        self.threeDRadio.toggled.connect(self.plotDimensionChange)
-
-        tauUnityTitle = QtWidgets.QLabel("tau=1:")
+        tauUnityTitle = QtWidgets.QLabel(u"\u03C4 = 1:")
         self.tauUnityCheck = QtWidgets.QCheckBox(self.centralWidget)
         self.tauUnityCheck.setDisabled(True)
         self.tauUnityCheck.setObjectName("tauUnityCheck")
         self.tauUnityCheck.stateChanged.connect(self.tauUnityChange)
 
-        keepPlotRangeTitle = QtWidgets.QLabel("keep plot-range:")
-        self.keepPlotRangeCheck = QtWidgets.QCheckBox(self.centralWidget)
-        self.keepPlotRangeCheck.setDisabled(True)
-        self.keepPlotRangeCheck.setObjectName("keepPlotRangeCheck")
+        fixPlotWindowTitle = QtWidgets.QLabel("fix plot-window:")
+        self.fixPlotWindowCheck = QtWidgets.QCheckBox(self.centralWidget)
+        self.fixPlotWindowCheck.setDisabled(True)
+        self.fixPlotWindowCheck.setObjectName("fixPlotWindowCheck")
+
+        normLabel = QtWidgets.QLabel("fix data-range:")
+        self.dataRangeCheck = QtWidgets.QCheckBox()
+        self.dataRangeCheck.stateChanged.connect(self.normCheckChange)
+        self.dataRangeCheck.setDisabled(True)
 
         # --- Setup of data-presentation-layout ---
 
         dataParamsLayout.addWidget(quantityLabel, 0, 0)
-        dataParamsLayout.addWidget(self.quantityCombo, 0, 1, 1, 3)
-        dataParamsLayout.addWidget(self.normCheck, 0, 4, 1, 2)
-        dataParamsLayout.addWidget(self.funcCombo, 0, 6, 1, 1)
+        dataParamsLayout.addWidget(self.quantityCombo, 0, 1, 1, 4)
+        dataParamsLayout.addWidget(self.funcCombo, 0, 5)
 
         dataParamsLayout.addWidget(colorbarLabel, 1, 0)
         dataParamsLayout.addWidget(self.colorcanvas, 1, 1, 1, 4)
@@ -614,20 +617,19 @@ class BasicWindow(QtWidgets.QMainWindow):
         dataParamsLayout.addWidget(self.normMaxEdit, 3, 4)
         dataParamsLayout.addWidget(self.unitLabel, 3, 5)
 
-        dataParamsLayout.addWidget(oneDTitle, 4, 0)
-        dataParamsLayout.addWidget(self.oneDRadio, 4, 1)
+        dataParamsLayout.addWidget(dimensionTitle, 4, 0)
+        dataParamsLayout.addWidget(self.dimensionCombo, 4, 1)
 
-        dataParamsLayout.addWidget(twoDTitle, 4, 2)
-        dataParamsLayout.addWidget(self.twoDRadio, 4, 3)
+        dataParamsLayout.addWidget(self.oneDDataCombo, 5, 0, 1, 2)
 
-        dataParamsLayout.addWidget(threeDTitle, 4, 4)
-        dataParamsLayout.addWidget(self.threeDRadio, 4, 5)
+        dataParamsLayout.addWidget(tauUnityTitle, 4, 3)
+        dataParamsLayout.addWidget(self.tauUnityCheck, 4, 4)
 
-        dataParamsLayout.addWidget(tauUnityTitle, 5, 0)
-        dataParamsLayout.addWidget(self.tauUnityCheck, 5, 1)
+        dataParamsLayout.addWidget(fixPlotWindowTitle, 4, 5)
+        dataParamsLayout.addWidget(self.fixPlotWindowCheck, 4, 6)
 
-        dataParamsLayout.addWidget(keepPlotRangeTitle, 5, 2)
-        dataParamsLayout.addWidget(self.keepPlotRangeCheck, 5, 3)
+        dataParamsLayout.addWidget(normLabel, 5, 5)
+        dataParamsLayout.addWidget(self.dataRangeCheck, 5, 6)
 
         # ---------------------------------------------------------------------
         # ------------- Groupbox with vector plot parameters ------------------
@@ -665,35 +667,39 @@ class BasicWindow(QtWidgets.QMainWindow):
 
         vpScaleLabel = QtWidgets.QLabel("Scale:")
         self.vpScaleEdit = QtWidgets.QLineEdit("{dat:5.2g}".format(dat=1.e-7))
+        self.vpScaleEdit.setObjectName("vp-scaleEdit")
         self.vpScaleEdit.setMinimumWidth(55)
         self.vpScaleEdit.setMaximumWidth(55)
         self.vpScaleEdit.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
         self.vpScaleEdit.setDisabled(True)
-        self.vpScaleEdit.textChanged.connect(self.generalPlotRoutine)
+        self.vpScaleEdit.textChanged.connect(self.plotRoutine)
 
         vpXIncLabel = QtWidgets.QLabel("x-increment:")
         self.vpXIncEdit = QtWidgets.QLineEdit("{dat}".format(dat=4))
+        self.vpXIncEdit.setObjectName("vp-xIncEdit")
         self.vpXIncEdit.setMinimumWidth(55)
         self.vpXIncEdit.setMaximumWidth(55)
         self.vpXIncEdit.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
         self.vpXIncEdit.setDisabled(True)
-        self.vpXIncEdit.textChanged.connect(self.generalPlotRoutine)
+        self.vpXIncEdit.textChanged.connect(self.plotRoutine)
 
         vpYIncLabel = QtWidgets.QLabel("y-increment:")
         self.vpYIncEdit = QtWidgets.QLineEdit("{dat}".format(dat=4))
+        self.vpYIncEdit.setObjectName("vp-yIncEdit")
         self.vpYIncEdit.setMinimumWidth(55)
         self.vpYIncEdit.setMaximumWidth(55)
         self.vpYIncEdit.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
         self.vpYIncEdit.setDisabled(True)
-        self.vpYIncEdit.textChanged.connect(self.generalPlotRoutine)
+        self.vpYIncEdit.textChanged.connect(self.plotRoutine)
 
         vpAlphaLabel = QtWidgets.QLabel("Vector-opacity:")
         self.vpAlphaEdit = QtWidgets.QLineEdit("{dat}".format(dat=1))
+        self.vpAlphaEdit.setObjectName("vp-alphaEdit")
         self.vpAlphaEdit.setMinimumWidth(55)
         self.vpAlphaEdit.setMaximumWidth(55)
         self.vpAlphaEdit.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
         self.vpAlphaEdit.setDisabled(True)
-        self.vpAlphaEdit.textChanged.connect(self.generalPlotRoutine)
+        self.vpAlphaEdit.textChanged.connect(self.plotRoutine)
 
         # --- Setup of vector-plot-layout ---
 
@@ -720,7 +726,7 @@ class BasicWindow(QtWidgets.QMainWindow):
 
         self.splitter.addWidget(controlwid)
 
-        # --- Fill up left layout with groups ---
+        # --- Fill up control panel with groups ---
 
         self.controlgrid.addWidget(timeGroup)
         self.controlgrid.addWidget(posGroup)
@@ -734,6 +740,7 @@ class BasicWindow(QtWidgets.QMainWindow):
         start = time.time()
 
         # --- Initiate axes and cell-sizes ---
+        self.currentFileLabel.setText(self.fname[0].split("/")[-1])
 
         if self.fileType == "cobold" or self.fileType == "mean":
             self.xc1 = self.modelfile[0].dataset[0].box[0]["xc1"].data.squeeze()*1.e-5
@@ -797,17 +804,23 @@ class BasicWindow(QtWidgets.QMainWindow):
                 self.currentX3Title.setText("iz:")
                 self.actualX3Title.setText("z [km]:")
                 shape = np.array(self.modelfile[0]['tau'].shape)
-            self.xc1 = np.arange(0, shape[0])
+            m = [i for i in self.currentFileLabel.text().split("_") if "mu" in i]
+            if len(m) > 0:
+                self.xc1 = np.arange(0, shape[0]) * float(m[0][2:6])
+            else:
+                self.xc1 = np.arange(0, shape[0])
+
             self.xc2 = np.arange(0, shape[1])
             self.xc3 = np.arange(0, shape[2])
 
-            self.xb1 = np.arange(0, shape[0] + 1)
-            self.xb2 = np.arange(0, shape[1] + 1)
-            self.xb3 = np.arange(0, shape[2] + 1)
-
-            self.dx = 1
+            self.dx = np.diff(self.xc1).mean()
             self.dy = 1
             self.dz = 1
+
+            self.xb1 = self.xc1 - self.dx / 2
+            self.xb1 = np.append(self.xb1, self.xb1[-1] + self.dx)
+            self.xb2 = np.arange(0, shape[1] + 1)
+            self.xb3 = np.arange(0, shape[2] + 1)
 
             self.constGrid = True
 
@@ -894,28 +907,26 @@ class BasicWindow(QtWidgets.QMainWindow):
         # ---- update parameters of widgets ----
         # --------------------------------------
 
-        self.currentTimeEdit.setText(str(self.timind).rjust(4))
+        self.currentTimeEdit.setText(str(self.timind))
 
         self.modelind = 0
         self.dsind = 0
-
-        self.plot = False
 
         self.actualTimeLabel.setText("{dat:10.1f}".format(dat=self.time[self.timind, 0]))
 
         self.currentFileLabel.setText(self.fname[self.modelind].split("/")[-1])
 
         self.x1ind = self.x1Slider.value()
-        self.currentX1Edit.setText(str(self.x1ind).rjust(10))
-        self.actualX1Label.setText("{:13.1f}".format(self.xc1[self.x1ind]).rjust(13))
+        self.currentX1Edit.setText(str(self.x1ind))
+        self.actualX1Label.setText("{:13.1f}".format(self.xc1[self.x1ind]))
 
         self.x2ind = self.x2Slider.value()
-        self.currentX2Edit.setText(str(self.x2ind).rjust(10))
-        self.actualX2Label.setText("{:13.1f}".format(self.xc2[self.x2ind]).rjust(13))
+        self.currentX2Edit.setText(str(self.x2ind))
+        self.actualX2Label.setText("{:13.1f}".format(self.xc2[self.x2ind]))
 
         self.x3ind = self.x3Slider.value()
-        self.currentX3Edit.setText(str(self.x3ind).rjust(10))
-        self.actualX3Label.setText("{:13.1f}".format(self.xc3[self.x3ind]).rjust(13))
+        self.currentX3Edit.setText(str(self.x3ind))
+        self.actualX3Label.setText("{:13.1f}".format(self.xc3[self.x3ind]))
 
         self.colorbar.set_cmap(self.cmCombo.currentCmap)
         self.colorbar.draw_all()
@@ -925,10 +936,10 @@ class BasicWindow(QtWidgets.QMainWindow):
             shape = np.array(self.modelfile[self.modelind].dataset[self.dsind].box[self.boxind][self.typeind].data.shape)
         else:
             self.tauUnityCheck.setDisabled(True)
-        self.dim = shape.squeeze().size
+        self.DataDim = shape.squeeze().size
 
         # in dependency of the data´s dimension activate, or de-activate the different GUI-elements
-        if self.dim == 3:
+        if self.DataDim == 3:
             self.planeCombo.setDisabled(False)
             self.cmCombo.setDisabled(False)
 
@@ -944,13 +955,13 @@ class BasicWindow(QtWidgets.QMainWindow):
             self.actualX2Label.setDisabled(False)
             self.actualX3Label.setDisabled(False)
 
-            self.oneDRadio.setDisabled(False)
-            self.twoDRadio.setDisabled(False)
-            # self.threeDRadio.setDisabled(False)
+            self.dimensionCombo.setDisabled(False)
+
+            self.oneDDataCombo.setDisabled(False)
 
             if self.opa and self.eos:
                 self.tauUnityCheck.setDisabled(False)
-        if self.dim == 2:
+        if self.DataDim == 2:
             self.planeCombo.setDisabled(True)
             self.cmCombo.setDisabled(False)
 
@@ -966,9 +977,9 @@ class BasicWindow(QtWidgets.QMainWindow):
             self.actualX2Label.setDisabled(True)
             self.actualX3Label.setDisabled(True)
 
-            self.oneDRadio.setDisabled(True)
-            self.twoDRadio.setDisabled(True)
-            self.threeDRadio.setDisabled(True)
+            self.dimensionCombo.setDisabled(True)
+
+            self.oneDDataCombo.setDisabled(True)
 
             self.tauUnityCheck.setDisabled(True)
 
@@ -979,7 +990,8 @@ class BasicWindow(QtWidgets.QMainWindow):
                 self.x2ind = 0
             elif self.direction == 2:
                 self.x1ind == 0
-        elif self.dim == 1:
+
+        elif self.DataDim == 1:
             self.planeCombo.setDisabled(True)
             self.cmCombo.setDisabled(True)
 
@@ -995,9 +1007,9 @@ class BasicWindow(QtWidgets.QMainWindow):
             self.actualX2Label.setDisabled(True)
             self.actualX3Label.setDisabled(True)
 
-            self.oneDRadio.setDisabled(True)
-            self.twoDRadio.setDisabled(True)
-            self.threeDRadio.setDisabled(True)
+            self.dimensionCombo.setDisabled(True)
+
+            self.oneDDataCombo.setDisabled(True)
 
             self.tauUnityCheck.setDisabled(True)
 
@@ -1011,7 +1023,7 @@ class BasicWindow(QtWidgets.QMainWindow):
             elif self.direction == 2:
                 self.x2ind = 0
                 self.x3ind = 0
-        self.normCheck.setDisabled(False)
+        self.dataRangeCheck.setDisabled(False)
 
         if self.opa and self.eos and self.x3Combo.currentIndex() == 1:
             rho = self.modelfile[self.modelind].dataset[self.dsind].box[0]["rho"].data
@@ -1023,16 +1035,16 @@ class BasicWindow(QtWidgets.QMainWindow):
                                    radhtautop=self.parFile['c_radhtautop'].data)
             else:
                 tau = self.Opa.tau(rho, axis=0, T=T, P=P, zb=self.xb3 * 1.e5)
-            self.data = self.setPlotData(self.modelind, self.dsind, tau=tau)
+            self.data = self.setQuantity(self.modelind, self.dsind, tau=tau)
         else:
-            self.data = self.setPlotData(self.modelind, self.dsind)
+            self.data = self.setQuantity(self.modelind, self.dsind)
 
         self.unitLabel.setText(self.unit)
-        if self.normCheck.checkState() == QtCore.Qt.Checked:
+        if self.dataRangeCheck.checkState() == QtCore.Qt.Checked:
             self.getTotalMinMax()
 
         self.cmInvert.setDisabled(False)
-        self.keepPlotRangeCheck.setDisabled(False)
+        self.fixPlotWindowCheck.setDisabled(False)
         self.quantityCombo.setDisabled(False)
 
         if self.cmInvert.checkState() == QtCore.Qt.Checked:
@@ -1041,7 +1053,6 @@ class BasicWindow(QtWidgets.QMainWindow):
             self.invertCM(False)
 
         self.planeCheck()
-        self.plot = True
         print("Time needed for initial load:", time.time()-start)
 
     # -------------
@@ -1050,6 +1061,7 @@ class BasicWindow(QtWidgets.QMainWindow):
 
     @pyqtSlot()
     def tauUnityChange(self):
+        self.senders.append(self.sender().objectName())
         if self.tauUnityCheck.isChecked():
             if self.eos and self.opa:
                 rho = self.modelfile[self.modelind].dataset[self.dsind].box[0]["rho"].data
@@ -1072,6 +1084,7 @@ class BasicWindow(QtWidgets.QMainWindow):
     @pyqtSlot()
     def tauRangeChange(self):
         sender = self.sender()
+        self.senders.append(sender.objectName())
         try:
             self.numTau = int(self.numTauEdit.text())
             self.minTau = float(self.minTauEdit.text())
@@ -1092,14 +1105,14 @@ class BasicWindow(QtWidgets.QMainWindow):
             print("{0} of {1} is an invalid input.".format(sender.text(), sender.objectName()))
             pass
 
-        if self.plot:
-            self.tauRange = np.logspace(self.minTau, self.maxTau, self.numTau)[::-1]
-            self.data = self.setPlotData(self.modelind, self.dsind)
-            self.planeCheck()
+        self.tauRange = np.logspace(self.minTau, self.maxTau, self.numTau)[::-1]
+        self.data = self.setQuantity(self.modelind, self.dsind)
+        self.planeCheck()
 
     @pyqtSlot()
     def getTotalMinMax(self):
-        if self.dim == 3:
+        self.senders.append(self.sender().objectName())
+        if self.DataDim == 3:
             self.globBound = []
 
             xmin, ymin, zmin, xmax, ymax, zmax = ([] for _ in range(6))
@@ -1107,7 +1120,7 @@ class BasicWindow(QtWidgets.QMainWindow):
             if self.fileType == "cobold" or self.fileType == "mean":
                 for i, mod in enumerate(self.modelfile):
                     for j, dat in enumerate(mod.dataset):
-                        data = self.setPlotData(i, j)
+                        data = self.setQuantity(i, j)
                         xmin.append(data.min(axis=(0, 1)))
                         xmax.append(data.max(axis=(0, 1)))
 
@@ -1118,7 +1131,7 @@ class BasicWindow(QtWidgets.QMainWindow):
                         zmax.append(data.max(axis=(1, 2)))
             else:
                 for i, mod in enumerate(self.modelfile):
-                    data = self.setPlotData(i, 0)
+                    data = self.setQuantity(i, 0)
                     xmin.append(data.min(axis=(0, 1)))
                     xmax.append(data.max(axis=(0, 1)))
 
@@ -1137,21 +1150,23 @@ class BasicWindow(QtWidgets.QMainWindow):
             if self.fileType == "cobold" or self.fileType == "mean":
                 for i, mod in enumerate(self.modelfile):
                     for j, dat in enumerate(mod.dataset):
-                        data = self.setPlotData(i, j)
+                        data = self.setQuantity(i, j)
                         min.append(data.min())
                         max.append(data.max())
             else:
                 for i, mod in enumerate(self.modelfile):
-                    data = self.setPlotData(i, 0)
+                    data = self.setQuantity(i, 0)
                     min.append(data.min())
                     max.append(data.max())
             self.globBound = [min, max]
 
-    def normCheckChange(self, state):
-        if state == QtCore.Qt.Checked:
-            self.getTotalMinMax()
+    def normCheckChange(self):
+        self.senders.append(self.sender().objectName())
+        # if state == QtCore.Qt.Checked:
+        #     self.getTotalMinMax()
 
     def invertCM(self, state):
+        self.senders.append(self.sender().objectName())
         if state == QtCore.Qt.Checked:
             self.cmCombo.inv = "_r"
 
@@ -1164,7 +1179,13 @@ class BasicWindow(QtWidgets.QMainWindow):
         self.colorbar.draw_all()
         self.colorcanvas.draw()
 
-    def setPlotData(self, mod, dat, tau=None):
+    def crossChange(self, state):
+        self.senders.append(self.sender().objectName())
+        self.plotRoutine()
+
+    @pyqtSlot(int, int, np.ndarray)
+    def setQuantity(self, mod, dat, tau=None):
+        self.senders.append(self.sender().objectName())
         self.statusBar().showMessage("Initialize arrays...")
         start = time.time()
         clight = 2.998e10
@@ -1182,7 +1203,7 @@ class BasicWindow(QtWidgets.QMainWindow):
 
                 data = ne.evaluate("sqrt(v1**2+v2**2)")
                 self.unit = "cm/s"
-            elif  self.quantityCombo.currentText() == "Velocity, absolute":
+            elif self.quantityCombo.currentText() == "Velocity, absolute":
                 v1 = self.modelfile[mod].dataset[dat].box[0]["v1"].data
                 v2 = self.modelfile[mod].dataset[dat].box[0]["v2"].data
                 v3 = self.modelfile[mod].dataset[dat].box[0]["v3"].data
@@ -1534,9 +1555,9 @@ class BasicWindow(QtWidgets.QMainWindow):
             data = self.modelfile[mod].dataset[dat].box[self.boxind][self.typeind].data.squeeze()
             self.unit = self.modelfile[mod].dataset[dat].box[self.boxind][self.typeind].params["u"]
         else:
-            data = self.modelfile[mod][self.typeind].squeeze().T
+            data = self.modelfile[mod][self.typeind].squeeze()
             self.unit = self.modelfile[mod].unit(self.typeind)
-        self.dim = data.ndim
+        self.DataDim = data.ndim
 
         if self.x3Combo.currentIndex() == 1:
             if tau is not None:
@@ -1561,68 +1582,84 @@ class BasicWindow(QtWidgets.QMainWindow):
     @pyqtSlot()
     def planeCheck(self):
         sender = self.sender()
+        self.senders.append(sender.objectName())
         if sender.objectName() == "plane-Combo":
             self.pos = None
-        # do not plot when changing min norm value (as plotted after changing max value)
-        self.plot = False
-        if self.dim == 3:
-            if self.normCheck.checkState() == QtCore.Qt.Checked:
-                if self.planeCombo.currentText() == "xy":
-                    self.normMinEdit.setText("{dat:16.5g}".format(dat=self.globBound[0][0][self.x3ind]))
-                    # plot if max norm value is not changed
-                    self.plot = True
-                    self.normMaxEdit.setText("{dat:16.5g}".format(dat=self.globBound[0][1][self.x3ind]))
-                elif self.planeCombo.currentText() == "xz":
-                    self.normMinEdit.setText("{dat:16.5g}".format(dat=self.globBound[1][0][self.x2ind]))
-                    self.plot = True
-                    self.normMaxEdit.setText("{dat:16.5g}".format(dat=self.globBound[1][1][self.x2ind]))
-                elif self.planeCombo.currentText() == "yz":
-                    self.normMinEdit.setText("{dat:16.5g}".format(dat=self.globBound[2][0][self.x1ind]))
-                    self.plot = True
-                    self.normMaxEdit.setText("{dat:16.5g}".format(dat=self.globBound[2][1][self.x1ind]))
-                else:
-                    self.msgBox.setText("Plane not identified.")
-                    self.msgBox.exec_()
-                if self.sameNorm:
-                    self.generalPlotRoutine()
-            else:
-                if self.planeCombo.currentText() == "xy":
-                    self.normMinEdit.setText("{dat:16.5g}".format(dat=self.data[self.x3ind].min()))
-                    self.plot = True
-                    self.normMaxEdit.setText("{dat:16.5g}".format(dat=self.data[self.x3ind].max()))
-                elif self.planeCombo.currentText() == "xz":
-                    self.normMinEdit.setText("{dat:16.5g}".format(dat=self.data[:, self.x2ind].min()))
-                    self.plot = True
-                    self.normMaxEdit.setText("{dat:16.5g}".format(dat=self.data[:, self.x2ind].max()))
-                elif self.planeCombo.currentText() == "yz":
-                    self.normMinEdit.setText("{dat:16.5g}".format(dat=self.data[:, :, self.x1ind].min()))
-                    self.plot = True
-                    self.normMaxEdit.setText("{dat:16.5g}".format(dat=self.data[:, :, self.x1ind].max()))
-                else:
-                    self.msgBox.setText("Plane not identified.")
-                    self.msgBox.exec_()
 
+        if self.DataDim == 3:
+            if self.plotDim == 2:
+                if self.dataRangeCheck.checkState() == QtCore.Qt.Checked:
+                    if self.planeCombo.currentText() == "xy":
+                        self.pos = np.array([self.xc1[self.x1ind], self.xc2[self.x2ind]])
+                        # self.normMinEdit.setText("{dat:16.5g}".format(dat=self.globBound[0][0][self.x3ind]))
+                        # self.normMaxEdit.setText("{dat:16.5g}".format(dat=self.globBound[0][1][self.x3ind]))
+                    elif self.planeCombo.currentText() == "xz":
+                        self.pos = np.array([self.xc1[self.x1ind], self.xc3[self.x3ind]])
+                        # self.normMinEdit.setText("{dat:16.5g}".format(dat=self.globBound[1][0][self.x2ind]))
+                        # self.normMaxEdit.setText("{dat:16.5g}".format(dat=self.globBound[1][1][self.x2ind]))
+                    elif self.planeCombo.currentText() == "yz":
+                        self.pos = np.array([self.xc2[self.x2ind], self.xc3[self.x3ind]])
+                        # self.normMinEdit.setText("{dat:16.5g}".format(dat=self.globBound[2][0][self.x1ind]))
+                        # self.normMaxEdit.setText("{dat:16.5g}".format(dat=self.globBound[2][1][self.x1ind]))
+                    else:
+                        self.msgBox.setText("Plane not identified.")
+                        self.msgBox.exec_()
+                    self.plotRoutine()
+                else:
+                    if self.planeCombo.currentText() == "xy":
+                        self.pos = np.array([self.xc1[self.x1ind], self.xc2[self.x2ind]])
+                        self.normMinEdit.setText("{dat:16.5g}".format(dat=self.data[self.x3ind].min()))
+                        self.normMaxEdit.setText("{dat:16.5g}".format(dat=self.data[self.x3ind].max()))
+                    elif self.planeCombo.currentText() == "xz":
+                        self.pos = np.array([self.xc1[self.x1ind], self.xc3[self.x3ind]])
+                        self.normMinEdit.setText("{dat:16.5g}".format(dat=self.data[:, self.x2ind].min()))
+                        self.normMaxEdit.setText("{dat:16.5g}".format(dat=self.data[:, self.x2ind].max()))
+                    elif self.planeCombo.currentText() == "yz":
+                        self.pos = np.array([self.xc2[self.x2ind], self.xc3[self.x3ind]])
+                        self.normMinEdit.setText("{dat:16.5g}".format(dat=self.data[:, :, self.x1ind].min()))
+                        self.normMaxEdit.setText("{dat:16.5g}".format(dat=self.data[:, :, self.x1ind].max()))
+                    else:
+                        self.msgBox.setText("Plane not identified.")
+                        self.msgBox.exec_()
+            elif self.plotDim == 1:
+                if self.planeCombo.currentText() == "xy":
+                    self.pos = np.array([self.xc1[self.x1ind], self.xc2[self.x2ind]])
+                    self.normMinEdit.setText("{dat:16.5g}".format(dat=self.data[:, self.x2ind, self.x1ind].min()))
+                    self.normMaxEdit.setText("{dat:16.5g}".format(dat=self.data[:, self.x2ind, self.x1ind].max()))
+                elif self.planeCombo.currentText() == "xz":
+                    self.pos = np.array([self.xc1[self.x1ind], self.xc3[self.x3ind]])
+                    self.normMinEdit.setText("{dat:16.5g}".format(dat=self.data[self.x3ind, :, self.x1ind].min()))
+                    self.normMaxEdit.setText("{dat:16.5g}".format(dat=self.data[self.x3ind, :, self.x1ind].max()))
+                elif self.planeCombo.currentText() == "yz":
+                    self.pos = np.array([self.xc2[self.x2ind], self.xc3[self.x3ind]])
+                    self.normMinEdit.setText("{dat:16.5g}".format(dat=self.data[self.x3ind, self.x2ind].min()))
+                    self.normMaxEdit.setText("{dat:16.5g}".format(dat=self.data[self.x3ind, self.x2ind].max()))
+                else:
+                    self.msgBox.setText("Plane not identified.")
+                    self.msgBox.exec_()
         else:
-            if self.normCheck.checkState() == QtCore.Qt.Checked:
+            if self.dataRangeCheck.checkState() == QtCore.Qt.Checked:
                 self.normMinEdit.setText("{dat:16.5g}".format(dat=self.globBound[0]))
-                self.plot = True
                 self.normMaxEdit.setText("{dat:16.5g}".format(dat=self.globBound[1]))
-                if self.sameNorm:
-                    self.generalPlotRoutine()
             else:
                 self.normMinEdit.setText("{dat:16.5g}".format(dat=self.data.min()))
-                self.plot = True
                 self.normMaxEdit.setText("{dat:16.5g}".format(dat=self.data.max()))
 
-        self.sameNorm = False
+        try:
+            if sender.objectName() == "tauUnityCheck":
+                self.plotRoutine()
+        except IndexError:
+            pass
 
     @pyqtSlot()
     def funcComboChange(self):
-        self.data = self.setPlotData(self.modelind, self.dsind)
+        self.senders.append(self.sender().objectName())
+        self.data = self.setQuantity(self.modelind, self.dsind)
         self.planeCheck()
 
     @pyqtSlot()
     def x3ComboChange(self):
+        self.senders.append(self.sender().objectName())
         QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
 
         if self.x3Combo.currentIndex() == 0:
@@ -1631,7 +1668,7 @@ class BasicWindow(QtWidgets.QMainWindow):
             self.tauGroup.hide()
 
             self.x3Slider.setMaximum(self.xc3.size - 1)
-            self.data = self.setPlotData(self.modelind, self.dsind)
+            self.data = self.setQuantity(self.modelind, self.dsind)
             self.tauUnityCheck.setDisabled(False)
         else:
             self.currentX3Title.setText(u"i\u03C4:")
@@ -1664,18 +1701,18 @@ class BasicWindow(QtWidgets.QMainWindow):
             self.tauRange = np.logspace(self.minTau, self.maxTau, self.numTau)[::-1]
             self.x3Slider.setMaximum(self.numTau - 1)
 
-            self.plot = False
             self.minTauEdit.setText(str(self.minTau))
-            self.plot = True
             self.maxTauEdit.setText(str(self.maxTau))
 
-            self.data = self.setPlotData(self.modelind, self.dsind, tau=tau)
+            self.data = self.setQuantity(self.modelind, self.dsind, tau=tau)
             self.tauGroup.show()
         self.planeCheck()
         QtWidgets.QApplication.restoreOverrideCursor()
 
     @pyqtSlot()
-    def SliderChange(self):
+    def sliderChange(self):
+        self.senders.append(self.sender().objectName())
+
         sender = self.sender()
 
         if sender.objectName() == "time-Slider":
@@ -1701,7 +1738,11 @@ class BasicWindow(QtWidgets.QMainWindow):
                 elif self.fileType == "nicole":
                     shape = np.array(self.modelfile[self.modelind]['tau'].shape)
 
-                self.xc1 = np.arange(0, shape[0])
+                m = [i for i in self.currentFileLabel.text().split("_") if "mu" in i]
+                if len(m) > 0:
+                    self.xc1 = np.arange(0, shape[0]) * float(m[0][2:6])
+                else:
+                    self.xc1 = np.arange(0, shape[0])
                 self.xc2 = np.arange(0, shape[1])
                 self.xc3 = np.arange(0, shape[2])
 
@@ -1721,61 +1762,47 @@ class BasicWindow(QtWidgets.QMainWindow):
             if self.tauUnityCheck.isChecked():
                 self.tauUnityChange()
 
-            self.data = self.setPlotData(self.modelind, self.dsind)
-            self.sameNorm = True
+            self.data = self.setQuantity(self.modelind, self.dsind)
 
         elif sender.objectName() == "x1-Slider":
-            self.plot = False
             self.x1ind = self.x1Slider.value()
-            self.currentX1Edit.setText(str(self.x1ind).rjust(10))
-            self.actualX1Label.setText("{:10.1f}".format(self.xc1[self.x1ind]).rjust(13))
+            self.currentX1Edit.setText(str(self.x1ind))
+            self.actualX1Label.setText("{:10.1f}".format(self.xc1[self.x1ind]))
+            if "x" in self.planeCombo.currentText():
+                if self.crossCheck.isChecked():
+                    self.plotRoutine()
+                self.senders = []
 
         elif sender.objectName() == "x2-Slider":
-            self.plot = False
             self.x2ind = self.x2Slider.value()
-            self.currentX2Edit.setText(str(self.x2ind).rjust(10))
-            self.actualX2Label.setText("{:10.1f}".format(self.xc2[self.x2ind]).rjust(13))
+            self.currentX2Edit.setText(str(self.x2ind))
+            self.actualX2Label.setText("{:10.1f}".format(self.xc2[self.x2ind]))
+            if "y" in self.planeCombo.currentText():
+                if self.crossCheck.isChecked():
+                    self.plotRoutine()
+                self.senders = []
 
         elif sender.objectName() == "x3-Slider":
-            self.plot = False
             self.x3ind = self.x3Slider.value()
-            self.currentX3Edit.setText(str(self.x3ind).rjust(10))
+            self.currentX3Edit.setText(str(self.x3ind))
             if self.x3Combo.currentIndex() == 0:
-                self.actualX3Label.setText("{:10.1f}".format(self.xc3[self.x3ind]).rjust(0))
+                self.actualX3Label.setText("{:10.1f}".format(self.xc3[self.x3ind]))
             else:
-                self.actualX3Label.setText("{:10.3g}".format(self.tauRange[self.x3ind]).rjust(0))
+                self.actualX3Label.setText("{:10.3g}".format(self.tauRange[self.x3ind]))
+
+            if "z" in self.planeCombo.currentText():
+                if self.crossCheck.isChecked():
+                    self.plotRoutine()
+                self.senders = []
 
         self.planeCheck()
-
-    @pyqtSlot()
-    def normChange(self):
-        if self.planeCombo.currentText() == "xy":
-            self.normMeanLabel.setText("{dat:13.4g}".format(dat=self.data[self.x3ind].mean()))
-        elif self.planeCombo.currentText() == "xz":
-            self.normMeanLabel.setText("{dat:13.4g}".format(dat=self.data[:, self.x2ind].mean()))
-        elif self.planeCombo.currentText() == "yz":
-            self.normMeanLabel.setText("{dat:13.4g}".format(dat=self.data[:, :, self.x1ind].mean()))
-
-        # catch 'nan' in Min/Max fields:
-        try:
-            self.minNorm = float(self.normMinEdit.text())
-            if self.minNorm > self.maxNorm:
-                raise ValueError('minNorm must be <= maxNorm')
-        except ValueError:
-            self.minNorm = np.finfo(np.float32).min
-        try:
-            self.maxNorm = float(self.normMaxEdit.text())
-            if self.minNorm > self.maxNorm:
-                raise ValueError('minNorm must be <= maxNorm')
-        except ValueError:
-            self.maxNorm = np.finfo(np.float32).max
-
-        if self.plot:
-            self.generalPlotRoutine()
+        if self.dataRangeCheck.checkState() == QtCore.Qt.Checked:
+            self.plotRoutine()
 
     @pyqtSlot()
     def currentEditChange(self):
         sender = self.sender()
+        self.senders.append(sender.objectName())
 
         try:
             if sender.objectName() == "current-time-Edit":
@@ -1784,8 +1811,9 @@ class BasicWindow(QtWidgets.QMainWindow):
                 elif int(self.currentTimeEdit.text()) < 0:
                     self.currentTimeEdit.setText(str(0))
 
-                self.timind = int(self.currentTimeEdit.text())
-                self.timeSlider.setValue(self.timind)
+                if "time-Slider" not in self.senders:
+                    self.timind = int(self.currentTimeEdit.text())
+                    self.timeSlider.setValue(self.timind)
 
             elif sender.objectName() == "current-x-Edit":
                 if int(self.currentX1Edit.text()) > len(self.xc1):
@@ -1793,8 +1821,9 @@ class BasicWindow(QtWidgets.QMainWindow):
                 elif int(self.currentX1Edit.text()) < 0:
                     self.currentX1Edit.setText(str(0))
 
-                self.x1ind = int(self.currentX1Edit.text())
-                self.x1Slider.setValue(self.x1ind)
+                if "x1-Slider" not in self.senders:
+                    self.x1ind = int(self.currentX1Edit.text())
+                    self.x1Slider.setValue(self.x1ind)
 
             elif sender.objectName() == "current-y-Edit":
                 if int(self.currentX2Edit.text()) > len(self.xc2):
@@ -1802,8 +1831,9 @@ class BasicWindow(QtWidgets.QMainWindow):
                 elif int(self.currentX2Edit.text()) < 0:
                     self.currentX2Edit.setText(str(0))
 
-                self.x2ind = int(self.currentX2Edit.text())
-                self.x2Slider.setValue(self.x2ind)
+                if "x2-Slider" not in self.senders:
+                    self.x2ind = int(self.currentX2Edit.text())
+                    self.x2Slider.setValue(self.x2ind)
 
             elif sender.objectName() == "current-z-Edit":
                 if self.x3Combo.currentIndex() == 0:
@@ -1815,24 +1845,21 @@ class BasicWindow(QtWidgets.QMainWindow):
                 elif int(self.currentX2Edit.text()) < 0:
                     self.currentX3Edit.setText(str(0))
 
-                self.x3ind = int(self.currentX3Edit.text())
-                self.x3Slider.setValue(self.x3ind)
-
-            self.statusBar().showMessage("")
+                if "x3-Slider" not in self.senders:
+                    self.x3ind = int(self.currentX3Edit.text())
+                    self.x3Slider.setValue(self.x3ind)
         except:
             self.statusBar().showMessage("Invalid input in currentEditChange!")
 
     @pyqtSlot()
     def timeBtnClick(self):
-
         sender = self.sender()
+        self.senders.append(sender.objectName())
 
         if sender.objectName() == "next-time-Button" and self.timind < (self.timlen - 1):
             self.timind += 1
-            self.sameNorm = True
         elif sender.objectName() == "prev-time-Button" and self.timind > 0:
             self.timind -= 1
-            self.sameNorm = True
         else:
             self.statusBar().showMessage("Out of range.")
             return
@@ -1840,8 +1867,47 @@ class BasicWindow(QtWidgets.QMainWindow):
         self.timeSlider.setValue(self.timind)
 
     @pyqtSlot()
+    def normChange(self):
+        self.senders.append(self.sender().objectName())
+        if self.plotDim == 2:
+            if self.DataDim == 3:
+                if self.planeCombo.currentText() == "xy":
+                    self.normMeanLabel.setText("{dat:13.4g}".format(dat=self.data[self.x3ind].mean()))
+                elif self.planeCombo.currentText() == "xz":
+                    self.normMeanLabel.setText("{dat:13.4g}".format(dat=self.data[:, self.x2ind].mean()))
+                elif self.planeCombo.currentText() == "yz":
+                    self.normMeanLabel.setText("{dat:13.4g}".format(dat=self.data[:, :, self.x1ind].mean()))
+        elif self.plotDim == 1:
+            if self.DataDim == 3:
+                if self.oneDDataCombo.currentText() == "current":
+                    if self.planeCombo.currentText() == "xy":
+                        self.normMeanLabel.setText("{dat:13.4g}".format(dat=self.data[:, self.x2ind, self.x1ind].mean()))
+                    elif self.planeCombo.currentText() == "xz":
+                        self.normMeanLabel.setText("{dat:13.4g}".format(dat=self.data[self.x3ind, :, self.x1ind].mean()))
+                    elif self.planeCombo.currentText() == "yz":
+                        self.normMeanLabel.setText("{dat:13.4g}".format(dat=self.data[self.x3ind, self.x2ind].mean()))
+                else:
+                    self.normMeanLabel.setText("{dat:13.4g}".format(dat=self.data.mean()))
+            else:
+                self.normMeanLabel.setText("{dat:13.4g}".format(dat=self.data.mean()))
+
+        # catch 'nan' in Min/Max fields:
+        try:
+            self.minNorm = float(self.normMinEdit.text())
+        except ValueError:
+            self.minNorm = np.finfo(np.float32).min
+        try:
+            self.maxNorm = float(self.normMaxEdit.text())
+        except ValueError:
+            self.maxNorm = np.finfo(np.float32).max
+
+        if self.minNorm < self.maxNorm:
+            self.plotRoutine()
+
+    @pyqtSlot()
     def tauBtnClick(self):
         sender = self.sender()
+        self.senders.append(sender.objectName())
         # "minus-max-tau-Button"
         # "plus-max-tau-Button"
 
@@ -1871,17 +1937,24 @@ class BasicWindow(QtWidgets.QMainWindow):
 
     @pyqtSlot()
     def plotDimensionChange(self):
-        sender = self.sender()
+        self.senders.append(self.sender().objectName())
 
-        if sender.objectName() == "2DRadio":
-            self.planeCheck()
-            # self.threeDPlotBox.hide()
-            self.plotBox.show()
-        elif sender.objectName() == "3DRadio":
-            pass
-            # self.threeDPlotBox.Plot(self.data)
-            # self.plotBox.hide()
-            # self.threeDPlotBox.show()
+        if self.dimensionCombo.currentText() == "1D":
+            self.plotDim = 1
+            self.oneDDataCombo.show()
+        elif self.dimensionCombo.currentText() == "2D":
+            self.plotDim = 2
+            self.oneDDataCombo.hide()
+        elif self.dimensionCombo.currentText() == "3D":
+            self.plotDim = 3
+            self.oneDDataCombo.hide()
+
+        self.plotRoutine()
+
+    @pyqtSlot()
+    def oneDComboChange(self):
+        self.senders.append(self.sender().objectName())
+        self.plotRoutine()
 
     # ----------------------------------------
     # --- Change of quantity via combo box ---
@@ -1889,7 +1962,7 @@ class BasicWindow(QtWidgets.QMainWindow):
 
     @pyqtSlot()
     def quantityChange(self):
-
+        self.senders.append(self.sender().objectName())
         self.boxind = -1
 
         for i in range(len(self.quantityList)):
@@ -1905,17 +1978,17 @@ class BasicWindow(QtWidgets.QMainWindow):
         # --- get new globally minimal and maximal values for normalization ---
         # ---------------------------------------------------------------------
 
-        if self.normCheck.checkState() == QtCore.Qt.Checked:
+        if self.dataRangeCheck.checkState() == QtCore.Qt.Checked:
             self.getTotalMinMax()
 
         # --------------------------------------
-        # --- update parameters from widgets ---
+        # --- update parameters of widgets ---
 
-        self.data = self.setPlotData(self.modelind, self.dsind)
+        self.data = self.setQuantity(self.modelind, self.dsind)
 
-        # self.dim = 3 - self.data.shape.count(1)
+        # self.DataDim = 3 - self.data.shape.count(1)
 
-        if self.dim == 3:
+        if self.DataDim == 3:
             self.planeCombo.setDisabled(False)
             self.cmCombo.setDisabled(False)
 
@@ -1930,7 +2003,7 @@ class BasicWindow(QtWidgets.QMainWindow):
             self.actualX1Label.setDisabled(False)
             self.actualX2Label.setDisabled(False)
             self.actualX3Label.setDisabled(False)
-        if self.dim == 2:
+        if self.DataDim == 2:
             self.planeCombo.setDisabled(True)
             self.cmCombo.setDisabled(False)
 
@@ -1951,7 +2024,7 @@ class BasicWindow(QtWidgets.QMainWindow):
                     shape.index(1)
             else:
                 self.direction = self.modelfile[self.modelind][self.typeind].T.shape.index(1)
-        elif self.dim == 1:
+        elif self.DataDim == 1:
             self.planeCombo.setDisabled(True)
             self.cmCombo.setDisabled(True)
 
@@ -1981,6 +2054,8 @@ class BasicWindow(QtWidgets.QMainWindow):
 
     @pyqtSlot()
     def vectorSetup(self):
+        self.senders.append(self.sender().objectName())
+
         if self.vpCheck.isChecked():
             self.vpMagRadio.setDisabled(False)
             self.vpVelRadio.setDisabled(False)
@@ -2008,10 +2083,10 @@ class BasicWindow(QtWidgets.QMainWindow):
             self.vpMagRadio.setDisabled(True)
             self.vpVelRadio.setDisabled(True)
 
-        self.generalPlotRoutine()
+        self.plotRoutine()
 
     @pyqtSlot()
-    def generalPlotRoutine(self):
+    def plotRoutine(self):
         # "virtual" method
         pass
 
@@ -2019,7 +2094,7 @@ class BasicWindow(QtWidgets.QMainWindow):
 class ModelSaveDialog(BasicWindow):
     def __init__(self, modelfile):
 
-        # --- convert imput parameters to global parameters
+        # --- convert input parameters to global parameters
 
         self.modelfile = modelfile
 
@@ -2046,7 +2121,8 @@ class MultiPlotWind(BasicWindow):
 
         self.addWidgets()
         self.plotDim = 2
-        self.plotWinds = {}
+        self.plotWinds = {"z-position:": {}, u"\u03C4-position:": {}}
+        self.plotInds = {"z-position:": [], u"\u03C4-position:": []}
         self.plotWindsN = 0
 
         self.initLoad()
@@ -2204,17 +2280,6 @@ class MultiPlotWind(BasicWindow):
 
         self.controlgrid.addWidget(addPlotGroup)
 
-    @pyqtSlot()
-    def plotDimensionChange(self):
-        sender = self.sender()
-
-        if sender.objectName() == "1DRadio":
-            self.plotDim = 1
-        elif sender.objectName() == "2DRadio":
-            self.plotDim = 2
-        elif sender.objectName() == "3DRadio":
-            self.plotDim = 3
-
     def invertCM(self, state):
         if state == QtCore.Qt.Checked:
             self.cmCombo.inv = "_r"
@@ -2230,6 +2295,7 @@ class MultiPlotWind(BasicWindow):
 
     @pyqtSlot()
     def addPlotBtnClick(self):
+        axind = self.x3Combo.currentText()
         if self.planeCombo.currentText() == "xy":
             axis = 0
         elif self.planeCombo.currentText() == "xz":
@@ -2241,12 +2307,12 @@ class MultiPlotWind(BasicWindow):
 
         if self.plotDim < 3:
             ind = "subWind"+str(self.plotWindsN)
-            self.plotWindsN += 1
 
             sub = mdis.MdiSubWindow(self.plotArea)
             sub.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
-            self.plotWinds[ind] = mdis.MDIPlotWidget(self.data, parent=sub, dimension=self.plotDim, axis=axis)
-            sub.setWidget(self.plotWinds[ind])
+            self.plotWinds[axind][ind] = mdis.MDIPlotWidget(self.data, parent=sub, dimension=self.plotDim, axis=axis)
+            self.plotInds[axind].append(self.plotWindsN)
+            sub.setWidget(self.plotWinds[axind][ind])
             sub.setObjectName(ind)
             sub.closed.connect(self.closedSubWindow)
 
@@ -2257,27 +2323,44 @@ class MultiPlotWind(BasicWindow):
             sub.setWindowTitle(title)
             self.plotArea.addSubWindow(sub)
             sub.show()
-        self.generalPlotRoutine()
+            self.plotWindsN += 1
+        self.plotRoutine()
+
+    @pyqtSlot()
+    def x3ComboChange(self):
+        super(MultiPlotWind, self).x3ComboChange()
+        axind = self.x3Combo.currentIndex()
+
+        for i in range(self.x3Combo.count()):
+            if i == axind:
+                for j in self.plotInds[i]:
+                    self.plotArea.subWindowList()[i].show()
+            else:
+                for j in self.plotInds[i]:
+                    self.plotArea.subWindowList()[i].hide()
 
     @pyqtSlot(str)
     def closedSubWindow(self, name):
-        self.plotWinds.pop(name, None)
+        axind = self.x3Combo.currentText()
+        self.plotWinds[axind].pop(name, None)
 
     @pyqtSlot()
-    def generalPlotRoutine(self):
+    def plotRoutine(self):
+        axind = self.x3Combo.currentText()
         sender = self.sender()
         if sender.objectName() == "quantity-Combo":
             pass
-        for plot in self.plotWinds:
+        for plot in self.plotWinds[axind]:
             if self.crossCheck.isChecked():
                 pos = self.pos
             else:
                 pos = None
-            if self.keepPlotRangeCheck.isChecked():
-                if self.plotWinds[plot].dim == 1:
-                    window = np.array(self.plotWinds[plot].ax.get_xlim())
+            if self.fixPlotWindowCheck.isChecked():
+                if self.plotWinds[axind][plot].dim == 1:
+                    window = np.array(self.plotWinds[axind][plot].ax.get_xlim())
                 else:
-                    window = np.array([self.plotWinds[plot].ax.get_xlim(), self.plotWinds[plot].ax.get_ylim()])
+                    window = np.array([self.plotWinds[axind][plot].ax.get_xlim(),
+                                       self.plotWinds[axind][plot].ax.get_ylim()])
             else:
                 window = None
 
@@ -2301,16 +2384,31 @@ class MultiPlotWind(BasicWindow):
                                        [float(self.maxTauEdit.text()), float(self.minTauEdit.text())]])
 
             if self.tauUnityCheck.isChecked() and self.plotWinds[plot].dim == 2:
-                self.plotWinds[plot].Plot(ind=ind, limits=limits, window=window, cmap=self.cmCombo.currentCmap, pos=pos,
-                                          tauUnity=(self.xc1, self.tauheight[self.x2ind]))
+                self.plotWinds[axind][plot].Plot(ind=ind, limits=limits, window=window, cmap=self.cmCombo.currentCmap,
+                                                 pos=pos, tauUnity=(self.xc1, self.tauheight[self.x2ind]))
             else:
-                self.plotWinds[plot].Plot(ind=ind, limits=limits, window=window, cmap=self.cmCombo.currentCmap, pos=pos)
+                self.plotWinds[axind][plot].Plot(ind=ind, limits=limits, window=window, cmap=self.cmCombo.currentCmap,
+                                                 pos=pos)
 
             if self.vpCheck.isChecked():
                 try:
-                    self.plotWinds[plot].vectorPlot(self.xc1, self.xc3, self.u[:, self.x2ind], self.w[:, self.x2ind],
-                                                    xinc=int(self.vpXIncEdit.text()), yinc=int(self.vpYIncEdit.text()),
-                                                    scale=float(self.vpScaleEdit.text()),
-                                                    alpha=float(self.vpAlphaEdit.text()))
+                    self.plotWinds[axind][plot].vectorPlot(self.xc1, self.xc3, self.u[:, self.x2ind],
+                                                           self.w[:, self.x2ind], xinc=int(self.vpXIncEdit.text()),
+                                                           yinc=int(self.vpYIncEdit.text()),
+                                                           scale=float(self.vpScaleEdit.text()),
+                                                           alpha=float(self.vpAlphaEdit.text()))
                 except ValueError:
                     pass
+
+
+class PolePickerWind(QtWidgets.QMainWindow):
+    def __init__(self):
+        super(DataPickerWind, self).__init__()
+
+        self.setWindowTitle("Data Picker")
+        self.centralWidget = QtWidgets.QWidget(self)
+
+        self.MainLayout = QtWidgets.QBoxLayout(parent=self.centralWidget)
+
+        self.show()
+

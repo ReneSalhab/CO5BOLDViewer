@@ -67,21 +67,24 @@ class Opac:
 
         self.header = header
 
-        self.tabT = np.array([item for sublist in temptb for item in sublist if item != '']).astype(np.float32)
-        self.tabTBN = np.array([item for sublist in tabtbn for item in sublist if item != '']).astype(np.float32)
-        self.idxTBN = np.array([item for sublist in idxtbn for item in sublist if item != '']).astype(np.int32)
+        self.tabT = self.enlist(temptb, np.float32)
+        self.tabTBN = self.enlist(tabtbn, np.float32)
+        self.idxTBN = self.enlist(idxtbn, np.int32)
         self.idxTBN -= 1
-        self.tabDTB = np.array([item for sublist in tabdtb for item in sublist if item != '']).astype(np.float32)
+        self.tabDTB = self.enlist(tabdtb, np.float32)
 
-        self.tabP = np.array([item for sublist in presstb for item in sublist if item != '']).astype(np.float32)
-        self.tabPBN = np.array([item for sublist in tabpbn for item in sublist if item != '']).astype(np.float32)
-        self.idxPBN = np.array([item for sublist in idxpbn for item in sublist if item != '']).astype(np.int32)
+        self.tabP = self.enlist(presstb, np.float32)
+        self.tabPBN = self.enlist(tabpbn, np.float32)
+        self.idxPBN = self.enlist(idxpbn, np.int32)
         self.idxPBN -= 1
-        self.tabDPB = np.array([item for sublist in tabdpb for item in sublist if item != '']).astype(np.float32)
+        self.tabDPB = self.enlist(tabdpb, np.float32)
 
         tabKap = np.array([a.strip() for sublist in tabKap for a in sublist if a != '']).astype(np.float32)
         tabKap = tabKap.reshape(dimP, dimBAND, dimT)
         self.tabKap = np.transpose(tabKap, axes=(2, 0, 1))
+
+    def enlist(self, inList, datatype):
+        return np.array([item for sublist in inList for item in sublist if item != '']).astype(datatype)
 
     def _fileiter(self, conv=False):
         val = []
@@ -123,7 +126,7 @@ class Opac:
                 When opta is imported, it checks, if the compiled functions for computing opacity and optical depth are
                 available. The availability is printed into the console ("eosx is available: True/False"). If they are
                 not available, the methods for computing kappa, tau, height and quant_at_tau cannot be used.
-                
+
                 All quantities must be float32.
 
             Input
@@ -173,7 +176,7 @@ class Opac:
                 When opta is imported, it checks, if the compiled functions for computing opacity and optical depth are
                 available. The availability is printed into the console ("eosx is available: True/False"). If they are
                 not available, the methods for computing kappa, tau, height and quant_at_tau cannot be used.
-                
+
                 All quantities must be float32.
 
             Input
@@ -275,7 +278,7 @@ class Opac:
                 When opta is imported, it checks, if the compiled functions for computing opacity and optical depth are
                 available. The availability is printed into the console ("eosx is available: True/False"). If they are
                 not available, the methods for computing kappa, tau, height and quant_at_tau cannot be used.
-                
+
                 All quantities must be float32.
 
             Input
@@ -410,7 +413,7 @@ class Opac:
                 When opta is imported, it checks, if the compiled functions for computing opacity and optical depth are
                 available. The availability is printed into the console ("eosx is available: True/False"). If they are
                 not available, the methods for computing kappa, tau, height and quant_at_tau cannot be used.
-                
+
                 All quantities must be float32.
 
             Input

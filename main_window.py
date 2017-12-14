@@ -16,6 +16,7 @@ from collections import OrderedDict
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 import uio
+import time
 from opta import Opac
 import subclasses as sc
 import windows as wind
@@ -36,7 +37,6 @@ class MainWindow(wind.BasicWindow):
         self.initParams()
         self.setMenu()
         self.addWidgets()
-        self.statusBar().showMessage("ready")
 
         self.show()
 
@@ -75,6 +75,8 @@ class MainWindow(wind.BasicWindow):
 
         self.eosname = False
         self.opaname = False
+
+        self.senders = []
 
         # other parameters initialized in BasicWindow class
 
@@ -200,6 +202,9 @@ class MainWindow(wind.BasicWindow):
         self.plotBox.mpl_connect("motion_notify_event", self.dataPlotMotion)
         self.plotBox.mpl_connect("button_press_event", self.dataPlotPress)
 
+        # self.vtkPlot = sc.VTKPlotWidget(self.centralWidget)
+        # self.vtkPlot.hide()
+
         # ---------------------------------------------------------------------
         # -------------- Groupbox with file-state indicators ------------------
         # ---------------------------------------------------------------------
@@ -264,14 +269,12 @@ class MainWindow(wind.BasicWindow):
 
             if fil == "HDF5 file (*.h5)":
                 self.statusBar().showMessage("Save HDF5-file...")
-                sc.saveHD5(fname, self.modelfile[self.modelind], self.quantityCombo.currentText(),
-                           self.data, self.time[self.timind, 0], (self.x1ind,
-                           self.x2ind, self.x3ind), self.planeCombo.currentText())
+                sc.saveHD5(fname, self.modelfile[self.modelind], self.quantityCombo.currentText(), self.data,
+                           self.time[self.timind, 0], (self.x1ind, self.x2ind, self.x3ind), self.planeCombo.currentText())
             elif fil == "FITS file (*.fits)":
                 self.statusBar().showMessage("Save FITS-file...")
-                sc.saveFits(fname, self.modelfile[self.modelind], self.quantityCombo.currentText(),
-                            self.data, self.time[self.timind, 0], (self.x1ind,
-                            self.x2ind, self.x3ind), self.planeCombo.currentText())
+                sc.saveFits(fname, self.modelfile[self.modelind], self.quantityCombo.currentText(), self.data,
+                            self.time[self.timind, 0], (self.x1ind, self.x2ind, self.x3ind), self.planeCombo.currentText())
             QtWidgets.QApplication.restoreOverrideCursor()
 
             self.statusBar().showMessage("File {f} saved".format(f=fname))
@@ -285,12 +288,13 @@ class MainWindow(wind.BasicWindow):
             self.stdDirMod = os.path.curdir
 
         # get list of model-file-names
-        self.fname, fil = QtWidgets.QFileDialog.getOpenFileNames(self, "Open Model File", self.stdDirMod,
+        fname, fil = QtWidgets.QFileDialog.getOpenFileNames(self, "Open Model File", self.stdDirMod,
                                                                  "Model files (*.full *.end *.sta);;Mean files(*.mean);;"
                                                                  "NICOLE profiles (*.prof);;NICOLE model files (*.bin)")
-        Nfiles = len(self.fname)
+        Nfiles = len(fname)
         if Nfiles == 0:
             return
+        self.fname = fname
 
         # set standard directory for Model Load-Dialog to current directory
         self.stdDirMod = "/".join(self.fname[0].split("/")[:-1])
@@ -306,19 +310,12 @@ class MainWindow(wind.BasicWindow):
 
         self.modelfile = []
 
-        pd = QtWidgets.QProgressDialog("Load Model-files...", "Cancel", 0, Nfiles, self)
-        pd.show()
-
         if fil == "Mean files(*.mean)":
             self.fileType = "mean"
 
-            for i in range(Nfiles):
-                self.modelfile.append(uio.File(self.fname[i]))
-                pd.setValue(i + 1)
-                QtGui.QGuiApplication.processEvents()
-
-                if pd.wasCanceled():
-                    return
+            self.showProgressBar(uio.File)
+            if len(self.modelfile) == 0:
+                return
 
             # --- content from .mean file ---
             # --- Components depict box number from filestructure (see manual of CO5BOLD)
@@ -352,13 +349,9 @@ class MainWindow(wind.BasicWindow):
         elif fil == "Model files (*.full *.end *.sta)":
             self.fileType = "cobold"
 
-            for i in range(Nfiles):
-                self.modelfile.append(uio.File(self.fname[i]))
-                pd.setValue(i + 1)
-                QtGui.QGuiApplication.processEvents()
-
-                if pd.wasCanceled():
-                    return
+            self.showProgressBar(uio.File)
+            if len(self.modelfile) == 0:
+                return
 
             # --- content from .full or .end file (has one box per dataset) ---
             # --- First list component: Data from file
@@ -439,13 +432,9 @@ class MainWindow(wind.BasicWindow):
             self.eos = False
             self.opa = False
 
-            for i in range(Nfiles):
-                self.modelfile.append(Profile(self.fname[i]))
-                pd.setValue(i + 1)
-                QtGui.QGuiApplication.processEvents()
-
-                if pd.wasCanceled():
-                    return
+            self.showProgressBar(Profile)
+            if len(self.modelfile) == 0:
+                return
 
             self.quantityList = [OrderedDict([("Stokes I", "I"), ("Stokes Q", "Q"), ("Stokes U", "U"),
                                               ("Stokes V", "V")])]
@@ -454,13 +443,9 @@ class MainWindow(wind.BasicWindow):
             self.eos = False
             self.opa = False
 
-            for i in range(Nfiles):
-                self.modelfile.append(Model(self.fname[i]))
-                pd.setValue(i + 1)
-                QtGui.QGuiApplication.processEvents()
-
-                if pd.wasCanceled():
-                    return
+            self.showProgressBar(Model)
+            if len(self.modelfile) == 0:
+                return
 
             self.quantityList = [OrderedDict([("Geometrical height", 'z'), ("log10(Optical depth)", 'tau'),
                                               ("Temperature", 'T'), ("Pressure", 'P'), ("Density", 'rho'),
@@ -516,7 +501,7 @@ class MainWindow(wind.BasicWindow):
             self.stdDirPar = os.path.curdir
 
         parname = QtWidgets.QFileDialog.getOpenFileName(self, "Open Parameter File", self.stdDirPar,
-                                                             "parameter files (*.par)")[0]
+                                                        "parameter files (*.par)")[0]
 
         if len(parname) == 0:
             return      # return if QFileDialog canceled
@@ -591,7 +576,7 @@ class MainWindow(wind.BasicWindow):
             QtWidgets.QApplication.restoreOverrideCursor()
 
             self.eosFileLabel.setStyleSheet('color: green')
-            self.eosFileLabel.setToolTip("EOS-file is available.")
+            self.eosFileLabel.setToolTip("EOS-file is available. File: {}".format(self.eosname))
 
             self.statusBar().showMessage("Done")
 
@@ -633,9 +618,30 @@ class MainWindow(wind.BasicWindow):
             QtWidgets.QApplication.restoreOverrideCursor()
 
             self.opaFileLabel.setStyleSheet('color: green')
-            self.opaFileLabel.setToolTip("Opacity-file is available.")
+            self.opaFileLabel.setToolTip("Opacity-file is available. File: {}".format(self.opaname))
 
             self.statusBar().showMessage("Done")
+
+    def showProgressBar(self, func):
+        Nfiles = len(self.fname)
+
+        pd = QtWidgets.QProgressDialog("Load files...", "Cancel", 0, Nfiles, self)
+        # pd.setWindowTitle("Loading files...")
+        pd.show()
+
+        for i in range(Nfiles):
+            name = self.fname[i].split("/")[-1]
+            pd.setLabelText("Load {0}".format(name))
+            try:
+                self.modelfile.append(func(self.fname[i]))
+            except OSError:
+                print("{0} could not be loaded.".format(name))
+            pd.setValue(i + 1)
+            QtGui.QGuiApplication.processEvents()
+
+            if pd.wasCanceled():
+                self.modelfile = []
+                return
 
     # -------------------------------
     # --- Open additional windows ---
@@ -651,6 +657,9 @@ class MainWindow(wind.BasicWindow):
         else:
             self.multiPlot = wind.MultiPlotWind(self.fname, self.modelfile, self.fileType)
 
+    def showDataPicker(self):
+        pass
+
     # -------------
     # --- Slots ---
     # -------------
@@ -663,46 +672,51 @@ class MainWindow(wind.BasicWindow):
     def labelEosClick(self, event):
         if self.eos:
             self.eosFileLabel.setStyleSheet('color: green')
-            self.eosFileLabel.setToolTip("EOS-file is available.")
+            self.eosFileLabel.setToolTip("EOS-file is available. File: {}".format(self.eosname))
 
     def labelOpaClick(self, event):
         if self.opa:
             self.opaFileLabel.setStyleSheet('color: green')
-            self.opaFileLabel.setToolTip("Opa-file is available.")
+            self.opaFileLabel.setToolTip("Opa-file is available. File: {}".format(self.opaname))
 
     def dataPlotMotion(self, event):
+        if self.funcCombo.currentText() in ["log10", "log10(| |)"]:
+            unit = "log10(" + self.unit + ")"
+        else:
+            unit = self.unit
+
         try:
-            if self.dim == 0:
+            if self.DataDim == 0:
                 self.statusBar().showMessage("x: {xdat:13.6g}\ty: {ydat:13.6g}".format(xdat=event.xdata,
                                                                                        ydat=event.ydata))
-            elif self.dim == 1:
+            elif self.DataDim == 1:
                 self.statusBar().showMessage("x: {xdat:13.6g} km\ty: {ydat:13.6g} {unit}".format(xdat=event.xdata,
                                                                                                   ydat=event.ydata,
-                                                                                                  unit=self.unit))
+                                                                                                  unit=unit))
                 self.plotBox.setToolTip("x: {xdat:13.6g} km\ny: {ydat:13.6g} {unit}".format(xdat=event.xdata,
                                                                                             ydat=event.ydata,
-                                                                                            unit=self.unit))
-            elif self.dim == 2:
+                                                                                            unit=unit))
+            elif self.DataDim == 2:
                 idx = (np.abs(self.xc1-event.xdata)).argmin()
                 idy = (np.abs(self.xc2-event.ydata)).argmin()
 
                 self.statusBar().showMessage("x: {xdat:13.6g} km   y: {ydat:13.6g} km    value: {dat:13.6g} {unit}".
                                              format(xdat=event.xdata, ydat=event.ydata, dat = self.data[0, idy, idx],
-                                                    unit=self.unit))
+                                                    unit=unit))
                 self.plotBox.setToolTip("x: {xdat:13.6g} km\ny: {ydat:13.6g} km\nvalue: {dat:13.6g} {unit}".
                                         format(xdat=event.xdata, ydat=event.ydata, dat = self.data[0, idy, idx],
-                                               unit=self.unit))
+                                               unit=unit))
 
-            elif self.dim == 3:
+            elif self.DataDim == 3:
                 if self.planeCombo.currentText() == "xy":
                     idx = (np.abs(self.xc1 - event.xdata)).argmin()
                     idy = (np.abs(self.xc2 - event.ydata)).argmin()
 
                     self.statusBar().showMessage("x: {xdat:13.6g} km\ty: {ydat:13.6g} km\tvalue: {dat:13.6g} {unit}".
                                                  format(xdat=event.xdata, ydat=event.ydata,
-                                                        dat=self.data[self.x3ind, idy, idx], unit=self.unit))
+                                                        dat=self.data[self.x3ind, idy, idx], unit=unit))
                     self.plotBox.setToolTip("x: {xdat:13.6g} km\ny: {ydat:13.6g} km\nvalue: {dat:13.6g} {unit}".format(
-                        xdat=event.xdata, ydat=event.ydata, dat=self.data[self.x3ind, idy, idx], unit=self.unit))
+                        xdat=event.xdata, ydat=event.ydata, dat=self.data[self.x3ind, idy, idx], unit=unit))
 
                 elif self.planeCombo.currentText() == "xz":
                     idx = (np.abs(self.xc1 - event.xdata)).argmin()
@@ -712,10 +726,10 @@ class MainWindow(wind.BasicWindow):
                         idz = (np.abs(np.log10(self.tauRange) - event.ydata)).argmin()
                     self.statusBar().showMessage("x: {xdat:13.6g} km\tz: {zdat:13.6g} km\tvalue: {dat:13.6g} {unit}".
                                                  format(xdat=event.xdata, zdat=event.ydata,
-                                                        dat=self.data[idz, self.x2ind, idx], unit=self.unit))
+                                                        dat=self.data[idz, self.x2ind, idx], unit=unit))
                     self.plotBox.setToolTip("x: {xdat:13.6g} km\nz: {zdat:13.6g} km\nvalue: {dat:13.6g} {unit}".
                                             format(xdat=event.xdata, zdat=event.ydata,
-                                                   dat=self.data[idz, self.x2ind, idx], unit=self.unit))
+                                                   dat=self.data[idz, self.x2ind, idx], unit=unit))
 
                 elif self.planeCombo.currentText() == "yz":
                     idy = (np.abs(self.xc2 - event.xdata)).argmin()
@@ -726,19 +740,32 @@ class MainWindow(wind.BasicWindow):
 
                     self.statusBar().showMessage("y: {ydat:13.6g} km\tz: {zdat:13.6g} km\tvalue: {dat:13.6g} {unit}".
                                                  format(ydat=event.xdata, zdat=event.ydata,
-                                                        dat=self.data[idz, idy, self.x1ind], unit=self.unit))
+                                                        dat=self.data[idz, idy, self.x1ind], unit=unit))
                     self.plotBox.setToolTip("y: {ydat:13.6g} km\nz: {zdat:13.6g} km\nvalue: {dat:13.6g} {unit}".
                                             format(ydat=event.xdata, zdat=event.ydata,
-                                                   dat=self.data[idz, idy, self.x1ind], unit=self.unit))
+                                                   dat=self.data[idz, idy, self.x1ind], unit=unit))
 
                 sc.PlotWidget.linePlot(event.xdata, event.ydata)
         except Exception:
             pass
 
+        def plotDimensionChange(self):
+            sender = self.sender()
+
+            if sender.objectName() == "2DRadio":
+                self.planeCheck()
+                # self.vtkPlot.hide()
+                # self.plotBox.show()
+
+            elif sender.objectName() == "3DRadio":
+                self.threeDPlotBox.Plot(self.data)
+                self.plotBox.hide()
+                # self.vtkPlot.show()
+
     def dataPlotPress(self, event):
         if event.xdata is not None and event.ydata is not None:
-            self.pos = np.array([event.xdata, event.ydata])
-            if self.dim == 3:
+            # self.pos = np.array([event.xdata, event.ydata])
+            if self.DataDim == 3:
                 if self.planeCombo.currentText() == "xy":
                     idx = (np.abs(self.xc1 - event.xdata)).argmin()
                     idy = (np.abs(self.xc2 - event.ydata)).argmin()
@@ -768,32 +795,133 @@ class MainWindow(wind.BasicWindow):
         else:
             pass
         if self.crossCheck.isChecked():
-            self.generalPlotRoutine()
+            self.plotRoutine()
 
-    def generalPlotRoutine(self):
+    def getPlotData(self):
+        if self.plotDim == 3:
+            return self.data
+        elif self.plotDim == 2:
+            if self.DataDim == 3:
+                if self.planeCombo.currentText() == "xy":
+                    limits = np.array([[self.x1min, self.x1max], [self.x2min, self.x2max]])
+                    return self.data[self.x3ind], limits
+
+                elif self.planeCombo.currentText() == "xz":
+                    if self.x3Combo.currentIndex() == 0:
+                        limits = np.array([[self.x1min, self.x1max], [self.x3min, self.x3max]])
+                    else:
+                        limits = np.array([[self.x1min, self.x1max], [float(self.maxTauEdit.text()),
+                                                                      float(self.minTauEdit.text())]])
+                    return self.data[:, self.x2ind], limits
+
+                elif self.planeCombo.currentText() == "yz":
+                    if self.x3Combo.currentIndex() == 0:
+                        limits = np.array([[self.x2min, self.x2max], [self.x3min, self.x3max]])
+                    else:
+                        limits = np.array([[self.x2min, self.x2max], [float(self.maxTauEdit.text()),
+                                                                      float(self.minTauEdit.text())]])
+                    return self.data[:, :, self.x1ind], limits
+
+                else:
+                    self.msgBox.setText("Plane could not be identified.")
+                    self.msgBox.exec_()
+                    return None, None
+
+            elif self.DataDim == 2:
+                if self.direction == 0:
+                    limits = np.array([[self.x1min, self.x1max], [self.x2min, self.x2max]])
+                elif self.direction == 1:
+                    limits = np.array([[self.x1min, self.x1max], [self.x3min, self.x3max]])
+                elif self.direction == 2:
+                    limits = np.array([[self.x2min, self.x2max], [self.x3min, self.x3max]])
+                else:
+                    self.msgBox.setText("Direction could not be identified.")
+                    self.msgBox.exec_()
+                return self.data, limits
+
+        elif self.plotDim == 1:
+            if self.DataDim == 3:
+                if self.planeCombo.currentText() == "xy":
+                    limits = np.array([self.x3min, self.x3max])
+                    axis = (1, 2)
+                    plotSlice = (slice(None, None), slice(self.x2ind, self.x2ind + 1), slice(self.x1ind, self.x1ind + 1))
+                elif self.planeCombo.currentText() == "xz":
+                    limits = np.array([self.x2min, self.x2max])
+                    axis = (0, 2)
+                    plotSlice = (slice(self.x3ind, self.x3ind + 1), slice(None, None), slice(self.x1ind, self.x1ind + 1))
+                elif self.planeCombo.currentText() == "yz":
+                    limits = np.array([self.x1min, self.x1max])
+                    axis = (0, 1)
+                    plotSlice = (slice(self.x3ind, self.x3ind + 1), slice(self.x2ind, self.x2ind + 1), slice(None, None))
+                if self.oneDDataCombo.currentText() == "average":
+                    return self.data.mean(axis=axis), limits
+                else:
+                    return self.data[plotSlice].squeeze(), limits
+            else:
+                self.msgBox.setText("Dimension of plot could not be identified.")
+                self.msgBox.exec_()
+                return None
+        else:
+            self.msgBox.setText("Dimension not legal.")
+            self.msgBox.exec_()
+            return None
+
+    def plotRoutine(self):
+
+        plotCond = not self.vpCheck.isChecked() and "tauUnityCheck" not in self.senders and not\
+            self.dataRangeCheck.isChecked() and not self.crossCheck.isChecked()
+
+        if plotCond:
+            if "norm-max-Edit" not in self.senders and len(self.senders) > 1:
+                self.senders = []
+                return
+        data, limits = self.getPlotData()
+
+        if not self.fixPlotWindowCheck.isChecked():
+            if self.plotDim == 1:
+                self.plotBox.ax.set_xlim(limits)
+            else:
+                self.plotBox.ax.set_xlim(limits[0])
+                self.plotBox.ax.set_ylim(limits[1])
+
         if self.crossCheck.isChecked():
             pos = self.pos
         else:
             pos = None
-        if self.keepPlotRangeCheck.isChecked():
-            if self.dim == 1:
+
+        # --- Update plot, or don´t plot at all ---
+        # -----------------------------------------
+        if plotCond and self.senders[-1] != "cross-Check" and not self.tauUnityCheck.isChecked():
+            if np.all(limits == self.oldLimits) and self.plotDim == 2:
+                self.plotBox.updatePlot(data, self.minNorm, self.maxNorm)
+                self.oldData = data
+                self.oldLimits = limits
+                self.senders = []
+                return
+
+            if data is None or np.all(data == self.oldData):
+                self.senders = []
+                return
+
+        # -----------------------------------------
+
+        if self.fixPlotWindowCheck.isChecked():
+            if self.DataDim == 1:
                 window = np.array(self.plotBox.ax.get_xlim())
             else:
                 window = np.array([self.plotBox.ax.get_xlim(), self.plotBox.ax.get_ylim()])
         else:
             window = None
-        if self.dim == 3:
-            if self.threeDRadio.isChecked():
-                pass
-#                self.threeDPlotBox.Plot(self.data)
-#                if self.vpCheck.isChecked():
-#                    self.threeDPlotBox.visualization.update_vectors(self.u,
-#                        self.v, self.w, float(self.vpXIncEdit.text()))
-            elif self.twoDRadio.isChecked():
-                if self.planeCombo.currentText() == "xy":
-                    limits = np.array([[self.x1min, self.x1max], [self.x2min, self.x2max]])
 
-                    self.plotBox.plotFig(self.data[self.x3ind], limits=limits, vmin=self.minNorm, vmax=self.maxNorm,
+        if self.plotDim == 3:
+            pass
+#            self.threeDPlotBox.Plot(self.data)
+#            if self.vpCheck.isChecked():
+#            self.threeDPlotBox.visualization.update_vectors(self.u, self.v, self.w, float(self.vpXIncEdit.text()))
+        elif self.plotDim == 2:
+            if self.DataDim == 3:
+                if self.planeCombo.currentText() == "xy":
+                    self.plotBox.plotFig(data, limits=limits, vmin=self.minNorm, vmax=self.maxNorm,
                                          cmap=self.cmCombo.currentCmap, pos=pos, window=window)
                     if self.vpCheck.isChecked():
                         try:
@@ -804,19 +932,13 @@ class MainWindow(wind.BasicWindow):
                         except ValueError:
                             pass
                 elif self.planeCombo.currentText() == "xz":
-                    if self.x3Combo.currentIndex() == 0:
-                        limits = np.array([[self.x1min, self.x1max], [self.x3min, self.x3max]])
-                    else:
-                        limits = np.array([[self.x1min, self.x1max], [float(self.maxTauEdit.text()),
-                                                                      float(self.minTauEdit.text())]])
-
                     if self.tauUnityCheck.isChecked():
-                        self.plotBox.plotFig(self.data[:, self.x2ind, :], limits=limits, vmin=self.minNorm,
-                                             vmax=self.maxNorm, cmap=self.cmCombo.currentCmap, pos=pos,
+                        self.plotBox.plotFig(data, limits=limits, vmin=self.minNorm, vmax=self.maxNorm,
+                                             cmap=self.cmCombo.currentCmap, pos=pos,
                                              tauUnity=(self.xc1, self.tauheight[self.x2ind]), window=window)
                     else:
-                        self.plotBox.plotFig(self.data[:, self.x2ind, :], limits=limits, vmin=self.minNorm,
-                                             vmax=self.maxNorm, cmap=self.cmCombo.currentCmap, pos=pos, window=window)
+                        self.plotBox.plotFig(data, limits=limits, vmin=self.minNorm, vmax=self.maxNorm,
+                                             cmap=self.cmCombo.currentCmap, pos=pos, window=window)
 
                     if self.vpCheck.isChecked():
                         try:
@@ -827,18 +949,13 @@ class MainWindow(wind.BasicWindow):
                         except ValueError:
                             pass
                 elif self.planeCombo.currentText() == "yz":
-                    if self.x3Combo.currentIndex() == 0:
-                        limits = np.array([[self.x1min, self.x1max], [self.x3min, self.x3max]])
-                    else:
-                        limits = np.array([[self.x1min, self.x1max], [float(self.maxTauEdit.text()),
-                                                                      float(self.minTauEdit.text())]])
                     if self.tauUnityCheck.isChecked():
-                        self.plotBox.plotFig(self.data[:, :, self.x1ind], limits=limits, vmin=self.minNorm,
-                                             vmax=self.maxNorm, cmap=self.cmCombo.currentCmap, pos=pos,
+                        self.plotBox.plotFig(data, limits=limits, vmin=self.minNorm, vmax=self.maxNorm,
+                                             cmap=self.cmCombo.currentCmap, pos=pos,
                                              tauUnity=(self.xc2, self.tauheight[:, self.x1ind]), window=window)
                     else:
-                        self.plotBox.plotFig(self.data[:, :, self.x1ind], limits=limits, vmin=self.minNorm,
-                                             vmax=self.maxNorm, cmap=self.cmCombo.currentCmap, pos=pos, window=window)
+                        self.plotBox.plotFig(data, limits=limits, vmin=self.minNorm, vmax=self.maxNorm,
+                                             cmap=self.cmCombo.currentCmap, pos=pos, window=window)
                     if self.vpCheck.isChecked():
                         try:
                             self.plotBox.vectorPlot(self.xc2, self.xc3, self.v[:, :, self.x1ind], self.w[:, :, self.x1ind],
@@ -850,34 +967,29 @@ class MainWindow(wind.BasicWindow):
                 else:
                     self.msgBox.setText("Plane could not be identified.")
                     self.msgBox.exec_()
+            elif self.DataDim == 2:
+
+                self.plotBox.plotFig(data, limits=limits, vmin=self.minNorm, vmax=self.maxNorm,
+                                     cmap=self.cmCombo.currentCmap, pos=pos, window=window)
+            elif self.DataDim == 1:
+                self.plotBox.plotFig(data, limits=limits, window=window)
             else:
                 self.msgBox.setText("Dimension of plot could not be identified.")
                 self.msgBox.exec_()
-        elif self.dim == 2:
-            if self.direction == 0:
-                limits = np.array([[self.x1min, self.x1max], [self.x2min, self.x2max]])
-            elif self.direction == 1:
-                limits = np.array([[self.x1min, self.x1max], [self.x3min, self.x3max]])
-            elif self.direction == 2:
-                limits = np.array([[self.x2min, self.x2max], [self.x3min, self.x3max]])
-            else:
-                self.msgBox.setText("Direction could not be identified.")
-                self.msgBox.exec_()
 
-            self.plotBox.plotFig(self.data, limits=limits, vmin=self.minNorm, vmax=self.maxNorm,
-                                 cmap=self.cmCombo.currentCmap, pos=pos, window=window)
-
-        elif self.dim == 1:
-            if self.direction == 0:
-                limits = np.array([self.x3min, self.x3max])
-            elif self.direction == 1:
-                limits = np.array([self.x2min, self.x2max])
-            elif self.direction == 2:
-                limits = np.array([self.x1min, self.x1max])
+        elif self.plotDim == 1:
+            if self.DataDim == 3:
+                if self.oneDDataCombo.currentText() == "average":
+                    self.plotBox.plotFig(data, limits=limits, window=window)
+                else:
+                    self.plotBox.plotFig(data, limits=limits, window=window)
             else:
-                self.msgBox.setText("Direction could not be identified.")
+                self.msgBox.setText("Dimension of plot could not be identified.")
                 self.msgBox.exec_()
-            self.plotBox.plotFig(self.data, limits=limits, window=window)
         else:
             self.msgBox.setText("Dimension not legal.")
             self.msgBox.exec_()
+
+        self.oldData = data
+        self.oldLimits = limits
+        self.senders = []

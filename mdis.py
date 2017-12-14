@@ -37,6 +37,8 @@ class MDIPlotWidget(FigureCanvas):
         else:
             raise ValueError("Invalid dimension.")
 
+    # Plot-methods. Have to have same parameters, as usage is equal to each other.
+
     def plot1D(self, ind=0, limits=None, window=None, cmap="inferno", pos=None, tauUnity=None):
         self.ax.cla()
         axes = np.arange(3)
@@ -51,16 +53,15 @@ class MDIPlotWidget(FigureCanvas):
             self.ax.set_aspect('auto')
         self._draw_plot(window)
 
-    def plot2D(self, ind=0, limits=None, window=None, cmap="inferno", pos=None,
-               tauUnity=None):
+    def plot2D(self, ind=0, limits=None, window=None, cmap="inferno", pos=None, tauUnity=None):
         """
         Description
         -----------
             Plots data.
         :param data: ndarray, 2D, or 1D. Data that is plotted
-        :param limits: ndarray, shape is (2, 2). Extent of the plot.
-        :param vmin: float, minimum value for normalizing the plot
-        :param vmax: float, maximum value for normalizing the plot
+        :param limits: ndarray, shape is (2, 2). Extent of the plotRoutine.
+        :param vmin: float, minimum value for normalizing the plotRoutine
+        :param vmax: float, maximum value for normalizing the plotRoutine
         :param cmap:
 
         :param pos:
