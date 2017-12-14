@@ -875,6 +875,9 @@ class MainWindow(wind.BasicWindow):
             if "norm-max-Edit" not in self.senders and len(self.senders) > 1:
                 self.senders = []
                 return
+
+        self.senders.append(self.sender().objectName())
+
         data, limits = self.getPlotData()
 
         if not self.fixPlotWindowCheck.isChecked():
@@ -891,7 +894,7 @@ class MainWindow(wind.BasicWindow):
 
         # --- Update plot, or don´t plot at all ---
         # -----------------------------------------
-        if plotCond and self.senders[-1] != "cross-Check" and not self.tauUnityCheck.isChecked():
+        if plotCond and self.senders[-1] not in ["cross-Check", "vp-Check"] and not self.tauUnityCheck.isChecked():
             if np.all(limits == self.oldLimits) and self.plotDim == 2:
                 self.plotBox.updatePlot(data, self.minNorm, self.maxNorm)
                 self.oldData = data

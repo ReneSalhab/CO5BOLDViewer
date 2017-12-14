@@ -229,6 +229,20 @@ Example:
 
 ## Change-Log
 
+### Version 0.9.7
+
+- OPTIMIZATION: Computation of optical depth and opacity about 60 % faster.
+- NEW: Radio buttons for dimension-selection of plot exchanged with combo box.
+- NEW: Data range can be fixed.
+- NEW: tau=1-surface and cross-hair are immidiatly (un-)drawn when check-box is (un-) checked.
+- NEW: 1D plots are available now. One can select between the structure of the averages over the current
+ projection-plane and the structure at
+ the current position along the axis perpedicular to the current projection-plane.
+- FIX: Fixing plot-window works properly, now.
+- INTERNAL: Checking, whether a plot has to be done, not done, or just updated are centralized in the plotRoutine,
+ instead of checked throughout the code.
+- Minor optimization, fixes and refactors.
+
 ### Version 0.8.7
 
 - NEW: Plot of 1D-data is available
