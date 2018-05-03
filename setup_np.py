@@ -15,5 +15,6 @@ cmdclass = {"build_ext": build_ext},
 ext_modules = [Extension("eosinterx",
                          ["eosinterx.pyx"],
 					     include_dirs=[np.get_include()],
+                         extra_compile_args=["-march=native", "-O3"]
                         ),
 ])

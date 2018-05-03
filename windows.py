@@ -15,6 +15,10 @@ from scipy import interpolate as ip
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import pyqtSlot
 
+import matplotlib
+matplotlib.use('Qt5Agg', force=True)
+matplotlib.rcParams['backend'] = 'Qt5Agg'
+matplotlib.rcParams['backend.qt5'] = 'PyQt5'
 import matplotlib.pyplot as plt
 import matplotlib.colors as cl
 import matplotlib.colorbar as clbar
@@ -26,7 +30,7 @@ import subclasses as sc
 
 class BasicWindow(QtWidgets.QMainWindow):
     def __init__(self):
-        self.version = "0.9.7 hotfix 1"
+        self.version = "0.9.7.2"
         super(BasicWindow, self).__init__()
 
         self.centralWidget = QtWidgets.QWidget(self)
@@ -500,12 +504,14 @@ class BasicWindow(QtWidgets.QMainWindow):
 
         # --- default colormap (not available in older matplotlib versions)
 
-        cmi = self.cmaps.index("inferno")
+        print("inferno" in self.cmaps)
 
-        if cmi < 0:
-            self.cmCombo.setCurrentIndex(self.cmaps.index("jet"))
+        if "inferno" in self.cmaps:
+            cmi = self.cmaps.index("inferno")
         else:
-            self.cmCombo.setCurrentIndex(cmi)
+            cmi = self.cmaps.index("jet")
+
+        self.cmCombo.setCurrentIndex(cmi)
         self.cmCombo.inv = ""
         self.cmCombo.currentCmap = self.cmCombo.currentText() + self.cmCombo.inv
         self.cmCombo.setObjectName("colormap-Combo")
@@ -2399,6 +2405,84 @@ class MultiPlotWind(BasicWindow):
                                                            alpha=float(self.vpAlphaEdit.text()))
                 except ValueError:
                     pass
+
+
+class FileDescriptor(QtWidgets.QMainWindow):
+    def __init__(self, files, fname, curmodind, curdsind):
+        super(FileDescriptor, self).__init__()
+        self.centralWidget = QtWidgets.QWidget(self)
+
+        self.files = files
+        self.fname = fname
+
+        self.curmodind = curmodind
+        self.curdsind = curdsind
+
+        self.initUI()
+
+        self.show()
+
+    def initUI(self):
+
+        # --- main layout just consists of the file selector and the files's description
+
+        mainGrid = QtWidgets.QVBoxLayout(self.centralWidget)
+
+        # --- GroupBox of file with info about file ---
+
+        fileGroup = QtWidgets.QGroupBox("File", self.centralWidget)
+        fileLayout = QtWidgets.QVBoxLayout()
+        fileGroup.setLayout(fileLayout)
+
+        # --- Content of file-GroupBox ---
+
+        self.fileCommbo = QtWidgets.QComboBox(self.centralWidget)
+        for i in range(len(self.fname)):
+            self.fileCommbo.addItem(self.fname[i].split("/")[-1])
+
+        self.fileCommbo.setCurrentText(self.fname[self.curmodind].split("/")[-1])
+
+        fHeaderGroup = QtWidgets.QGroupBox(self.centralWidget)
+        fHeaderLayout = QtWidgets.QGridLayout(fHeaderGroup)
+        fHeaderGroup.setLayout(fHeaderLayout)
+
+        i = 0
+        for k, v in self.files[self.curmodind].items():
+            fHeaderLayout.addWidget(QtWidgets.QLabel(k), i, 0)
+            headvals = QtWidgets.QLabel(fHeaderGroup)
+            fHeaderLayout.addWidget(headvals, i, 1)
+
+            for val in v.data:
+                headvals.setText(headvals.text() + "\n" + str(val))
+                
+            i += 1
+        
+        dsSelectCombo = QtWidgets.QComboBox(fileGroup)
+        dsSelectCombo.addItems(np.arange(len(self.files[self.curmodind].dataset)))
+        dsSelectCombo.setCurrentIndex(self.curdsind)
+
+        # --- Dataset GroupBox with info about dataset ---
+
+        dsGroup = QtWidgets.QGroupBox("Dataset", self.centralWidget)
+        dsLayout = QtWidgets.QGridLayout(dsGroup)
+        dsGroup.setLayout(dsLayout)
+
+        # --- Content of Dataset GroupBox ---
+
+        dsHeaderGroup = QtWidgets.QGroupBox(self.centralWidget)
+        dsHeaderLayout = QtWidgets.QGridLayout(dsHeaderGroup)
+
+
+
+        # --- add items to fileLayout
+
+        fileLayout.addItem(self.fileCommbo)
+        fileLayout.addItem(fHeaderGroup)
+        fileLayout.addItem(dsSelectCombo)
+        fileLayout.addItem(dsGroup)
+
+
+        self.centralWidget.setLayout(maingrid)
 
 
 class PolePickerWind(QtWidgets.QMainWindow):

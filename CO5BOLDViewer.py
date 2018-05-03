@@ -7,6 +7,11 @@ Created on Tue Nov 05 08:49:34 2013
 
 import sys
 
+import matplotlib
+matplotlib.use('Qt5Agg', force=True)
+matplotlib.rcParams['backend'] = 'Qt5Agg'
+matplotlib.rcParams['backend.qt5'] = 'PyQt5'
+
 from PyQt5 import QtWidgets, QtGui, Qt, QtCore
 
 def main():

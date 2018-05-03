@@ -16,7 +16,6 @@ from collections import OrderedDict
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 import uio
-import time
 from opta import Opac
 import subclasses as sc
 import windows as wind
@@ -133,9 +132,15 @@ class MainWindow(wind.BasicWindow):
         # --------------------------------------------------------------------
 
         multiPlotAction = QtWidgets.QAction("Multi-Plot Window", self)
-        multiPlotAction.setStatusTip("Open window with multi-plot ability.")
-        multiPlotAction.setToolTip("Open window with multi-plot ability.")
+        multiPlotAction.setStatusTip("Opens window with multi-plot ability.")
+        multiPlotAction.setToolTip("Opens window with multi-plot ability.")
         multiPlotAction.triggered.connect(self.showMultiPlot)
+
+        fileDescriptorAction = QtWidgets.QAction("File Description", self)
+        fileDescriptorAction.setStatusTip("Opens window with full information about file.")
+        fileDescriptorAction.setToolTip("Opens window with full information about file.")
+        fileDescriptorAction.triggered.connect(self.showFileDescriptor)
+        fileDescriptorAction.setDisabled(True)
 
         # --------------------------------------------------------------------
         # ----------------- "Output" drop-down menu elements -----------------
@@ -175,6 +180,7 @@ class MainWindow(wind.BasicWindow):
 
         self.windowMenu = QtWidgets.QMenu("&Window", self)
         self.windowMenu.addAction(multiPlotAction)
+        self.windowMenu.addAction(fileDescriptorAction)
         self.windowMenu.setDisabled(True)
 
         # --- "Output" drop-down menu elements ---
@@ -289,8 +295,8 @@ class MainWindow(wind.BasicWindow):
 
         # get list of model-file-names
         fname, fil = QtWidgets.QFileDialog.getOpenFileNames(self, "Open Model File", self.stdDirMod,
-                                                                 "Model files (*.full *.end *.sta);;Mean files(*.mean);;"
-                                                                 "NICOLE profiles (*.prof);;NICOLE model files (*.bin)")
+                                                            "Model files (*.full *.end *.sta);;Mean files(*.mean);;"
+                                                            "NICOLE profiles (*.prof);;NICOLE model files (*.bin)")
         Nfiles = len(fname)
         if Nfiles == 0:
             return
@@ -657,6 +663,10 @@ class MainWindow(wind.BasicWindow):
         else:
             self.multiPlot = wind.MultiPlotWind(self.fname, self.modelfile, self.fileType)
 
+    def showFileDescriptor(self):
+        self.fileDescriptor = wind.FileDescriptor(self.modelfile, self.fname, self.modelind, self.dsind) # TODO: right arguments
+
+
     def showDataPicker(self):
         pass
 
@@ -876,7 +886,8 @@ class MainWindow(wind.BasicWindow):
                 self.senders = []
                 return
 
-        self.senders.append(self.sender().objectName())
+        if(self.sender() != None):
+            self.senders.append(self.sender().objectName())
 
         data, limits = self.getPlotData()
 

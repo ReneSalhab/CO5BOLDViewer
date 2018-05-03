@@ -7,6 +7,10 @@ Created on Aug 29 14:19 2017
 from PyQt5 import QtCore,  QtWidgets
 import numpy as np
 
+import matplotlib
+matplotlib.use('Qt5Agg', force=True)
+matplotlib.rcParams['backend'] = 'Qt5Agg'
+matplotlib.rcParams['backend.qt5'] = 'PyQt5'
 import matplotlib.pyplot as plt
 import matplotlib.colors as cl
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavTool
@@ -67,6 +71,10 @@ class MDIPlotWidget(FigureCanvas):
         :param pos:
         :return:
         """
+
+        if cmap == "inferno" and "inferno" not in cl.cmap:
+            cmap = "jet"
+        
         valer = ValueError("Either limits is not None, or an ndarray, or has wrong shape.")
 
         self.ax.cla()

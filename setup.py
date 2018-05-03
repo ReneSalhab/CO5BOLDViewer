@@ -11,11 +11,11 @@ from Cython.Distutils import build_ext
 import numpy as np
 
 setup(
-cmdclass = {"build_ext": build_ext},
-ext_modules = [Extension("eosinterx",
-                         ["eosinterx.pyx"],
-					     include_dirs=[np.get_include()],
-					     extra_compile_args=["-march=native", "-fopenmp", "-O3"],
-				    	 extra_link_args=["-fopenmp"]
-                        ),
-])
+cmdclass={"build_ext": build_ext},
+ext_modules=[Extension("eosinterx",
+                       ["eosinterx.pyx"],
+                       include_dirs=[np.get_include()],
+                       extra_compile_args=["-march=native", "-fopenmp", "-Ox"],
+                       extra_link_args=["-fopenmp"]),
+             ]
+)

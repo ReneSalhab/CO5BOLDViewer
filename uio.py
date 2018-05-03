@@ -38,9 +38,6 @@ class _EntryMapping(collections.Mapping):
         return self._entries
 
     def items(self):
-        return [(e.name, e) for e in self._entries]
-
-    def iteritems(self):
         for e in self._entries:
             yield (e.name, e)
 
