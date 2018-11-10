@@ -1,9 +1,8 @@
+import re
 from collections import Mapping
 from struct import Struct
-from os import path
+
 import numpy as np
-import os
-import re
 
 _uint_from_bytes = Struct('>I')
 

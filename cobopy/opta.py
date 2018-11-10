@@ -5,9 +5,10 @@ Created on Fri Jun 06 12:09:39 2014
 @author: René Georg Salhab
 """
 
-import numpy as np
-import numexpr as ne
 import re
+
+import numexpr as ne
+import numpy as np
 
 try:
     import eosinterx as eosx
@@ -141,7 +142,7 @@ class Opac:
 
             Example
             -------
-                    >>> from opta import Opac
+                    >>> from cobopy.opta import Opac
                     >>>
                     >>> opan = r"directory/to/opacity-file/file.opta"
                     >>> opa = Opac(opan)
@@ -206,7 +207,7 @@ class Opac:
             -------
                 If kappa is not pre-computed use:
 
-                    >>> from opta import Opac
+                    >>> from cobopy.opta import Opac
                     >>>
                     >>> opan = r"directory/to/opacity-file/file.opta"
                     >>> opa = Opac(opan)
@@ -215,7 +216,7 @@ class Opac:
 
                 If you want to pre-compute kappa use:
 
-                    >>> from opta import Opac
+                    >>> from cobopy.opta import Opac
                     >>>
                     >>> opan = r"directory/to/opacity-file/file.opta"
                     >>> opa = Opac(opan)
@@ -314,7 +315,7 @@ class Opac:
             -------
                 If kappa is not pre-computed use:
 
-                    >>> from opta import Opac
+                    >>> from cobopy.opta import Opac
                     >>>
                     >>> opan = r"directory/to/opacity-file/file.opta"
                     >>> opa = Opac(opan)
@@ -323,7 +324,7 @@ class Opac:
 
                 If you want to pre-compute kappa use:
 
-                    >>> from opta import Opac
+                    >>> from cobopy.opta import Opac
                     >>>
                     >>> opan = r"directory/to/opacity-file/file.opta"
                     >>> opa = Opac(opan)
@@ -448,7 +449,7 @@ class Opac:
             -------
                 If kappa is not pre-computed use:
 
-                    >>> from opta import Opac
+                    >>> from cobopy.opta import Opac
                     >>>
                     >>> opan = r"directory/to/opacity-file/file.opta"
                     >>> opa = Opac(opan)
@@ -457,7 +458,7 @@ class Opac:
 
                 If you want to pre-compute kappa use:
 
-                    >>> from opta import Opac
+                    >>> from cobopy.opta import Opac
                     >>>
                     >>> opan = r"directory/to/opacity-file/file.opta"
                     >>> opa = Opac(opan)
@@ -578,8 +579,8 @@ class Opac:
 
 
 if __name__ == '__main__':
-    from eosinter import EosInter
-    import uio
+    from cobopy.eosinter import EosInter
+    from cobopy import uio
 
     dpath = r"X:\pluto_2\salhab\cobold\scratchy\job_d3gt57g44rsn01_400x400x188\rhd020.full"
     eosn = r"H:\Documents\cobold\eos\dat\eos_cifist2006_m00_a00_l5.eos"

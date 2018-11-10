@@ -8,18 +8,18 @@ Created on Tue Nov 05 08:49:34 2013
 import sys
 
 import matplotlib
+
 matplotlib.use('Qt5Agg', force=True)
 matplotlib.rcParams['backend'] = 'Qt5Agg'
-matplotlib.rcParams['backend.qt5'] = 'PyQt5'
 
-from PyQt5 import QtWidgets, QtGui, Qt, QtCore
+from PyQt5 import QtWidgets, QtGui, Qt
 
 def main():
     app = QtWidgets.QApplication.instance()
     if app is None:
         app = QtWidgets.QApplication(sys.argv)
 
-    splash_pix = QtGui.QPixmap('loading_screen.png')
+    splash_pix = QtGui.QPixmap('./resources/loading_screen.png')
     splash = QtWidgets.QSplashScreen(splash_pix)
     splash.setMask(splash_pix.mask())
     font = QtGui.QFont(splash.font())
@@ -57,22 +57,22 @@ def main():
     import time
 
     splash.showMessage("Load Eosinter from eosinter", Qt.Qt.AlignCenter | Qt.Qt.AlignBottom, col)
-    from eosinter import EosInter
+    from cobopy.eosinter import EosInter
     splash.showMessage("Load uio", Qt.Qt.AlignCenter | Qt.Qt.AlignBottom, col)
-    import uio
+    import cobopy.uio
     splash.showMessage("Load Opac from opta", Qt.Qt.AlignCenter | Qt.Qt.AlignBottom, col)
-    from opta import Opac
+    from cobopy.opta import Opac
     splash.showMessage("Load Model and ProfileReader from nicole", Qt.Qt.AlignCenter | Qt.Qt.AlignBottom, col)
     from nicole import Model, Profile
     splash.showMessage("Load ParFile from par", Qt.Qt.AlignCenter | Qt.Qt.AlignBottom, col)
-    from par import ParFile
+    from cobopy.par import ParFile
     splash.showMessage("Load subclasses", Qt.Qt.AlignCenter | Qt.Qt.AlignBottom, col)
     import subclasses as sc
     splash.showMessage("Load windows", Qt.Qt.AlignCenter | Qt.Qt.AlignBottom, col)
     import windows as wind
 
     splash.showMessage("Load main window", Qt.Qt.AlignCenter | Qt.Qt.AlignBottom, col)
-    from main_window import MainWindow
+    from windows.main_window import MainWindow
 
     MainWindow = MainWindow()
     splash.finish(MainWindow)

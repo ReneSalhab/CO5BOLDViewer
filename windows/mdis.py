@@ -4,10 +4,10 @@ Created on Aug 29 14:19 2017
 :author: René Georg Salhab
 """
 
-from PyQt5 import QtCore,  QtWidgets
-import numpy as np
-
 import matplotlib
+import numpy as np
+from PyQt5 import QtCore, QtWidgets
+
 matplotlib.use('Qt5Agg', force=True)
 matplotlib.rcParams['backend'] = 'Qt5Agg'
 matplotlib.rcParams['backend.qt5'] = 'PyQt5'
@@ -61,7 +61,7 @@ class MDIPlotWidget(FigureCanvas):
         """
         Description
         -----------
-            Plots data.
+            Plots 2D data.
         :param data: ndarray, 2D, or 1D. Data that is plotted
         :param limits: ndarray, shape is (2, 2). Extent of the plotRoutine.
         :param vmin: float, minimum value for normalizing the plotRoutine

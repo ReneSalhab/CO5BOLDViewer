@@ -7,8 +7,9 @@ Created on Fri Nov 29 12:52:50 2013
 
 from distutils.core import setup
 from distutils.extension import Extension
-from Cython.Distutils import build_ext
+
 import numpy as np
+from Cython.Distutils import build_ext
 
 setup(
 cmdclass = {"build_ext": build_ext},
