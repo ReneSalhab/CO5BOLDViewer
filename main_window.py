@@ -4,10 +4,6 @@ Originally created on Tue Nov 05 10:12:33 2013
 
 @author: René Georg Salhab
 
-Modifications:
-    Aug 08 2017 : René Georg Salhab.
-                   Split MainWindow (including all attributes) into BasicWindow (basic attributes) and
-                   MainWindow (specific class of main window).
 """
 
 import os
@@ -16,13 +12,13 @@ from collections import OrderedDict
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 import uio
-import time
 from opta import Opac
 import subclasses as sc
 import windows as wind
 from par import ParFile
 from eosinter import EosInter
 from nicole import Model, Profile
+from MayaViPlotWidget import MayaViWidget as ThreeDPlotter
 
 
 class MainWindow(wind.BasicWindow):
@@ -235,14 +231,11 @@ class MainWindow(wind.BasicWindow):
         fileStateLayout.addWidget(self.eosFileLabel)
         fileStateLayout.addWidget(self.opaFileLabel)
 
-        # self.threeDPlotBox = sc.PlotWidget3D(self.centralWidget)
+        self.threeDPlotBox = ThreeDPlotter()
 
         # --- Add plot-widget to inhereted splitter
 
         self.splitter.addWidget(self.plotBox)
-
-        # splitter.addWidget(self.threeDPlotBox)
-        # self.threeDPlotBox.hide()
 
         # --- Add aditional groups to control panel ---
 
@@ -529,7 +522,7 @@ class MainWindow(wind.BasicWindow):
         self.parFileLabel.setStyleSheet('color: green')
         self.parFileLabel.setToolTip("Parameter-file is available.")
 
-    def showLoadEosDialog(self, eosname=False):
+    def showLoadEosDialog(self, eosname=''):
         if self.stdDirEos is None:
             self.stdDirEos = os.path.curdir
 
@@ -580,7 +573,7 @@ class MainWindow(wind.BasicWindow):
 
             self.statusBar().showMessage("Done")
 
-    def showLoadOpaDialog(self, opaname=False):
+    def showLoadOpaDialog(self, opaname=''):
 
         if self.stdDirOpa is None:
             self.stdDirOpa = os.path.curdir
@@ -749,22 +742,8 @@ class MainWindow(wind.BasicWindow):
         except Exception:
             pass
 
-        def plotDimensionChange(self):
-            sender = self.sender()
-
-            if sender.objectName() == "2DRadio":
-                self.planeCheck()
-                # self.vtkPlot.hide()
-                # self.plotBox.show()
-
-            elif sender.objectName() == "3DRadio":
-                self.threeDPlotBox.Plot(self.data)
-                self.plotBox.hide()
-                # self.vtkPlot.show()
-
     def dataPlotPress(self, event):
         if event.xdata is not None and event.ydata is not None:
-            # self.pos = np.array([event.xdata, event.ydata])
             if self.DataDim == 3:
                 if self.planeCombo.currentText() == "xy":
                     idx = (np.abs(self.xc1 - event.xdata)).argmin()
@@ -799,7 +778,7 @@ class MainWindow(wind.BasicWindow):
 
     def getPlotData(self):
         if self.plotDim == 3:
-            return self.data
+            return self.data, np.array([[self.x1min, self.x1max], [self.x2min, self.x2max]])
         elif self.plotDim == 2:
             if self.DataDim == 3:
                 if self.planeCombo.currentText() == "xy":
@@ -867,7 +846,6 @@ class MainWindow(wind.BasicWindow):
             return None
 
     def plotRoutine(self):
-
         plotCond = not self.vpCheck.isChecked() and "tauUnityCheck" not in self.senders and not\
             self.dataRangeCheck.isChecked() and not self.crossCheck.isChecked()
 
@@ -883,7 +861,7 @@ class MainWindow(wind.BasicWindow):
         if not self.fixPlotWindowCheck.isChecked():
             if self.plotDim == 1:
                 self.plotBox.ax.set_xlim(limits)
-            else:
+            elif self.plotDim == 2:
                 self.plotBox.ax.set_xlim(limits[0])
                 self.plotBox.ax.set_ylim(limits[1])
 
@@ -917,10 +895,9 @@ class MainWindow(wind.BasicWindow):
             window = None
 
         if self.plotDim == 3:
-            pass
-#            self.threeDPlotBox.Plot(self.data)
-#            if self.vpCheck.isChecked():
-#            self.threeDPlotBox.visualization.update_vectors(self.u, self.v, self.w, float(self.vpXIncEdit.text()))
+            self.threeDPlotBox.plot(np.swapaxes(self.data, 0, 2))
+            # if self.vpCheck.isChecked():
+            #     self.threeDPlotBox.visualization.update_vectors(self.u, self.v, self.w, float(self.vpXIncEdit.text()))
         elif self.plotDim == 2:
             if self.DataDim == 3:
                 if self.planeCombo.currentText() == "xy":

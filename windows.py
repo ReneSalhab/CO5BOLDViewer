@@ -569,7 +569,6 @@ class BasicWindow(QtWidgets.QMainWindow):
         self.dimensionCombo.activated.connect(self.plotDimensionChange)
         self.dimensionCombo.addItems(["1D", "2D", "3D"])
         self.dimensionCombo.setCurrentIndex(1)
-        self.dimensionCombo.model().item(2).setEnabled(False)
 
         self.oneDDataCombo = QtWidgets.QComboBox(self.centralWidget)
         self.oneDDataCombo.clear()

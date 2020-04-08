@@ -198,7 +198,7 @@ def saveFits(filename, modelfile, datatype, data, time, pos, plane):
     dataHDU.header["time"] = time
     dataHDU.header["datatype"] = datatype
     
-    cols = fits.ColDefs([col1,col2])
+    cols = fits.ColDefs([col1, col2])
     
     tbhdu = fits.new_table(cols)
     
@@ -223,10 +223,10 @@ def saveHD5(filename, modelfile, datatype, data, time, pos, plane):
     datagroup["plane"] = plane
     
     if plane == "xy":
-        datagroup["data"] = data[pos[2], :, :]
+        datagroup['data'] = data[pos[2], :, :]
         
-        datagroup["data"].dims[0].label = "x"
-        datagroup["data"].dims[1].label = "y"
+        datagroup['data'].dims[0].label = "x"
+        datagroup['data'].dims[1].label = "y"
         
         datagroup['data'].dims.create_scale(datagroup['x'])
         datagroup['data'].dims.create_scale(datagroup['y'])
@@ -235,10 +235,10 @@ def saveHD5(filename, modelfile, datatype, data, time, pos, plane):
         datagroup['data'].dims[1].attach_scale(datagroup['y'])
         
     elif plane == "xz":
-        datagroup["data"] = data[:, pos[1], :]
+        datagroup['data'] = data[:, pos[1], :]
         
-        datagroup["data"].dims[0].label = "x"
-        datagroup["data"].dims[1].label = "z"
+        datagroup['data'].dims[0].label = "x"
+        datagroup['data'].dims[1].label = "z"
         
         datagroup['data'].dims.create_scale(datagroup['x'])
         datagroup['data'].dims.create_scale(datagroup['z'])
@@ -247,10 +247,10 @@ def saveHD5(filename, modelfile, datatype, data, time, pos, plane):
         datagroup['data'].dims[1].attach_scale(datagroup['z'])
         
     elif plane == "yz":
-        datagroup["data"] = data[:, :, pos[0]]
+        datagroup['data'] = data[:, :, pos[0]]
         
-        datagroup["data"].dims[0].label = "y"
-        datagroup["data"].dims[1].label = "z"
+        datagroup['data'].dims[0].label = "y"
+        datagroup['data'].dims[1].label = "z"
         
         datagroup['data'].dims.create_scale(datagroup['y'])
         datagroup['data'].dims.create_scale(datagroup['z'])
