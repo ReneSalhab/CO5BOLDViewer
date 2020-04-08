@@ -5,24 +5,36 @@ A Qt-based viewer for .uio-data used by CO5BOLD and binary and profile-files use
 ## Requirements
     
 The following modules are used:
-      
+
+- astropy      
+- bisect
+- collections
+- h5py
+- math
+- matplotlib
+- mayavi
+- numexpr
+- numpy
 - os
+- PyQt5
 - re
+- scipy
+- struct
 - sys
 - time
-- math
-- h5py
-- numpy
-- scipy
-- PyQt5
-- struct
-- bisect
-- numexpr
-- astropy
-- matplotlib
-- collections
 
 ## Installation
+
+<br>
+
+**Important:** Since CO5BOLDViewer 0.9.8 MayaVi is used to provide 3D-Plots. MayaVi has to be installed separately via
+
+    pip install mayavi
+    
+
+---
+
+<br>
 
 For using CO5BOLDViewer python 3.x is needed. For this, it is recommended to install Anaconda from Continuum
 (https://www.continuum.io/downloads), which brings the needed modules with it.
@@ -31,11 +43,11 @@ To be able to compute temperature, pressure, entropy, optical depth and opacity,
 the cython-based eosinterx.pyx is necessary. For this, go to the directory you installed CO5BOLDViewer
 compile eosinterx.pyx with
 
-    bash& python setup.py build_ext --inplace
+    python setup.py build_ext --inplace
 
 Ipython won´t work for compilation. If the compiler cannot find openmp
 
-    bash& python setup_np.py build_ext --inplace
+    python setup_np.py build_ext --inplace
 
 should be used.
 
@@ -43,21 +55,21 @@ Notes: It is necessary that a C-compiler is installed. Some functions are parall
 
 If modules are missing you´ll have to install them. In case anaconda is installed, the command
 
-    bash$ conda install pyqt5
+    conda install pyqt5
 
 can be used (pyqt5 is an example).
 
 If python was not installed with anaconda, use
 
-    bash$ pip install pyqt5
+    pip install pyqt5
 		
 If everything is installed and compiled, the command
 
-    bash$ python CO5BOLDViewer.py
+    python CO5BOLDViewer.py
 
 or
 
-    bash$ ipython CO5BOLDViewer.py
+    ipython CO5BOLDViewer.py
 
 will start the CO5BOLDViewer. If something goes wrong, please let me know.
 
@@ -228,6 +240,10 @@ Example:
     print(parf['opapath'].data)   # prints the path to the used opacity-file
 
 ## Change-Log
+
+### Version 0.9.8
+
+- NEW: 3D-Plot using MayaVi
 
 ### Version 0.9.7
 
